@@ -3,18 +3,18 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Prévia pública do Radar Saúde DUOG. Acompanhe os dados do piloto de Arapiraca e as entregas do projeto.">
+  <meta name="description" content="Prévia do Radar Saúde DUOG. Acompanhe o piloto de Arapiraca, os dados municipais comparados e as entregas do projeto.">
   <meta name="theme-color" content="#142b24">
   <title>Radar Saúde DUOG · Prévia pública</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23142b24'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='%23b8e78f' stroke-width='4'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./site.css?v=baf105376644">
-  <script src="./site.js?v=ee28fe8a84e0" defer></script>
+  <link rel="stylesheet" href="./site.css?v=c022fd61e57d">
+  <script src="./site.js?v=633593d80057" defer></script>
 </head>
 <body>
   <header class="top">
     <div class="wrap top-inner">
       <a class="brand" href="./" aria-label="Radar Saúde DUOG, início">duog<span>•</span> <small>RADAR SAÚDE</small></a>
-      <nav id="navigation" aria-label="Navegação principal" hidden><a href="#dados">Dados do piloto</a><a href="#andamento">Desenvolvimento</a><button type="button" id="logout">Sair</button></nav>
+      <nav id="navigation" aria-label="Navegação principal" hidden><a href="#dados">Arapiraca</a><a href="#comparativo">Municípios</a><a href="#andamento">Entregas</a><button type="button" id="logout">Sair</button></nav>
     </div>
   </header>
   <main class="wrap section" id="access">
@@ -33,7 +33,7 @@
       <div class="wrap">
         <p class="eyebrow"><span class="dot"></span> Prévia de acompanhamento <span id="version"></span></p>
         <h1 tabindex="-1">Radar Saúde <em>DUOG</em></h1>
-        <p class="lead">Acompanhe os dados públicos de Arapiraca e as entregas do painel de gestão municipal da Atenção Primária.</p>
+        <p class="lead">Acompanhe o piloto de Arapiraca, compare indicadores de municípios de Alagoas e Pernambuco e veja o andamento das entregas.</p>
         <p class="stamp" id="stamp"></p>
       </div>
     </section>
@@ -42,6 +42,12 @@
       <h2 id="dados-title">Arapiraca, Alagoas</h2>
       <p class="intro">Selecione uma competência ou um ano. Cada fonte tem sua própria data de referência.</p>
       <div class="grid" id="panels" aria-label="Painéis de dados públicos"></div>
+    </section>
+    <section class="wrap section" id="comparativo" aria-labelledby="comparison-title">
+      <p class="eyebrow">Alagoas e Pernambuco</p>
+      <h2 id="comparison-title">Comparativo municipal</h2>
+      <p class="intro">Escolha um indicador e uma referência para consultar os municípios no mesmo recorte da fonte.</p>
+      <div id="comparison"></div>
     </section>
     <section class="progress" id="andamento" aria-labelledby="andamento-title">
       <div class="wrap section">

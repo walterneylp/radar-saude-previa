@@ -12,6 +12,8 @@ a:focus-visible,select:focus-visible{outline:3px solid #9c6122;outline-offset:4p
 .top-inner{min-height:4.4rem;justify-content:space-between}
 .top a{color:#fff;text-decoration:none}
 .top nav a:hover{text-decoration:underline}
+#comparison select{max-width:100%}
+summary{cursor:pointer;color:#125846;margin:.5rem 0}
 .brand{display:flex;align-items:baseline;gap:.25rem;font-weight:850;font-size:1.45rem;white-space:nowrap}
 .brand span{color:#b8e78f}
 .brand small{font-size:.72rem;font-weight:650;letter-spacing:.13em;margin-left:.45rem}
@@ -57,4 +59,4 @@ th:last-child,td:last-child{text-align:right}
 footer{background:#142b24;color:#e1eee5;padding:1.7rem 0}
 footer p{margin:.4rem 0 0;font-size:.9rem}
 @media(max-width:700px){.grid,.milestones{grid-template-columns:1fr}.top nav{gap:.7rem;font-size:.8rem}.brand small{display:none}}
-@media(max-width:390px){.columns{grid-template-columns:1fr;gap:.4rem}}
+@media(max-width:390px){.columns{grid-template-columns:minmax(0,1fr);gap:.4rem}.top-inner,.top nav{gap:.45rem}.top nav{flex-wrap:wrap;justify-content:flex-end}}

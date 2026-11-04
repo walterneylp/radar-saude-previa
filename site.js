@@ -49,7 +49,57 @@ function metric(value, detail) {
   return block;
 }
 
-function renderSnapshot({version, updated, ibge, series, sources, deliveries}) {
+function renderComparison(dataset) {
+  const target = document.getElementById('comparison');
+  if (!dataset) {
+    target.append(el('p', 'Comparativo indisponível nesta edição.'));
+    return;
+  }
+  const {municipios, indicadores, dados} = dataset;
+  const controls = el('div', null, 'columns');
+  const dates = el('div');
+  const result = el('div');
+  result.setAttribute('aria-live', 'polite');
+  const article = el('article', null, 'panel');
+  article.append(controls, result);
+  target.append(article);
+
+  function showMetric(key) {
+    const definition = indicadores[key];
+    const records = dados.filter(row => row.indicador === key);
+    const periods = [...new Set(records.map(row => row.competencia))].sort().reverse();
+    const format = definition.unit === 'money' ? reais : value => display(value, definition.unit === 'percent' ? '%' : '');
+    const showPeriod = period => {
+      const rows = records.filter(row => row.competencia === period);
+      const values = new Map(rows.map(row => [row.ibge, row.valor]));
+      const link = el('a', definition.source);
+      link.href = definition.url;
+      const cutoff = rows[0]?.corte;
+      const note = el('p', null, 'source');
+      note.append(link, ' · Referência ' + date(period));
+      if (cutoff) note.append(' · Data de corte ou publicação ' + date(cutoff));
+      result.replaceChildren(table(['Município', 'Valor'], Object.entries(municipios).map(([ibge, label]) =>
+        [label, format(values.get(ibge))])), note, el('p', 'O traço indica valor indisponível.', 'detail'));
+      if (key === 'fns_aps_por_habitante') {
+        result.append(el('p', 'Repasse acumulado da edição dividido pela estimativa IBGE de 1º de julho do mesmo ano.', 'detail'));
+      }
+      if (definition.unit === 'percent') {
+        result.append(el('p', 'O ano do corte é parcial. Percentuais acima de 100% seguem a fonte publicada.', 'detail'));
+      }
+    };
+    dates.replaceChildren();
+    selector(dates, 'Competência comparada', periods.map(period => [period, date(period)]), showPeriod);
+    showPeriod(periods[0]);
+  }
+
+  const active = new Set(dados.map(row => row.indicador));
+  const options = Object.entries(indicadores).filter(([key]) => active.has(key)).map(([key, item]) => [key, item.label]);
+  selector(controls, 'Indicador municipal', options, showMetric);
+  controls.append(dates);
+  showMetric(options[0][0]);
+}
+
+function renderSnapshot({version, updated, ibge, series, sources, deliveries, comparison}) {
   const panels = document.getElementById('panels');
   document.getElementById('version').textContent = '· v' + version;
   document.getElementById('stamp').textContent = 'IBGE ' + ibge + ' · Publicado em ' + date(updated);
@@ -60,6 +110,7 @@ function renderSnapshot({version, updated, ibge, series, sources, deliveries}) {
       el('h3', title), el('p', description));
     milestones.append(item);
   }
+  renderComparison(comparison);
 
   function card(title, links, wide = false) {
     const article = el('article', null, wide ? 'panel wide' : 'panel');
@@ -126,11 +177,22 @@ function renderSnapshot({version, updated, ibge, series, sources, deliveries}) {
   } else school.append(el('p', 'Referência indisponível nesta publicação.'));
 
   editions('qualidade', 'Qualidade da Atenção Primária', 'Siaps · Área pública', 'Quadrimestre de referência', ({data, period}) => {
-    const missing = ['C', 'B', 'M'].filter(group => !data.includes(group));
-    const block = metric(data.join(' e ') || '—', 'Grupos com resultados carregados · ' + date(period));
+    const groups = [...new Set(data.map(([, indicator]) => indicator[0]))].sort();
+    const missing = ['C', 'B', 'M'].filter(group => !groups.includes(group));
+    const block = metric(groups.join(' e ') || '—', 'Grupos com resultados carregados · ' + date(period));
     if (missing.length) block.append(el('p', 'Grupos sem resultados carregados nesta referência · ' + missing.join(', '), 'detail'));
+    const details = el('details');
+    details.append(el('summary', 'Conferir equipes por indicador e conceito'));
+    details.append(table(['Indicador, equipe e conceito', 'Equipes'],
+      data.map(([team, indicator, name, concept, total]) =>
+        [[indicator, name, team, concept].filter(Boolean).join(' · '), display(total)])));
+    block.append(details);
     return block;
   });
+
+  editions('siaps', 'Produção assistencial da APS', 'Siaps · Práticas assistenciais', 'Competência da produção', ({data}) =>
+    table(['Indicador e categoria', 'Valor publicado'],
+      data.map(([indicator, category, value]) => [[indicator, category].join(' · '), display(value)])));
 
   const vaccine = card('Cobertura vacinal', [['Painel CONASEMS · RNDS', sources.vacinacao]], true);
   const edition = series.vacinacao[0];
@@ -210,7 +272,7 @@ login.addEventListener('submit', async event => {
 document.getElementById('logout').addEventListener('click', () => {
   preview.hidden = true;
   navigation.hidden = true;
-  for (const id of ['panels', 'deliveries', 'version', 'stamp']) {
+  for (const id of ['panels', 'comparison', 'deliveries', 'version', 'stamp']) {
     document.getElementById(id).replaceChildren();
   }
   access.hidden = false;
