@@ -34,11 +34,11 @@ function table(headers, rows) {
     heading.append(cell);
   }
   const body = element.createTBody();
-  for (const [label, value] of rows) {
+  for (const [label, ...values] of rows) {
     const row = body.insertRow();
     const cell = el('th', label);
     cell.scope = 'row';
-    row.append(cell, el('td', value));
+    row.append(cell, ...values.map(value => el('td', value)));
   }
   return element;
 }
@@ -99,7 +99,40 @@ function renderComparison(dataset) {
   showMetric(options[0][0]);
 }
 
-function renderSnapshot({version, updated, ibge, series, sources, deliveries, comparison}) {
+function renderPse(parent, cities) {
+  if (!cities.length) {
+    parent.append(el('p', 'Referência indisponível nesta publicação.'));
+    return;
+  }
+  const detail = el('div');
+  detail.setAttribute('aria-live', 'polite');
+  function show(cityCode) {
+    const {pse} = cities.find(city => city.ibge === cityCode);
+    detail.replaceChildren(metric(display(pse.schools) + ' escolas pactuadas',
+      display(pse.students) + ' estudantes · Ciclo ' + pse.cycle));
+    if (!pse.window) {
+      detail.append(el('p', 'Apuração I1 e I2 indisponível para este recorte.', 'detail'));
+      return;
+    }
+    const indicators = el('div', null, 'columns');
+    indicators.append(metric(display(pse.i1, '%'), 'I1 · Escolas com ações elegíveis · ' + pse.i1_schools + ' de ' + pse.schools),
+      metric(display(pse.i2, '%'), 'I2 · Escolas com as cinco prioridades · ' + pse.i2_schools + ' de ' + pse.schools));
+    const schools = el('details');
+    const scroll = el('div', null, 'pse-schools');
+    scroll.tabIndex = 0;
+    scroll.setAttribute('role', 'region');
+    scroll.setAttribute('aria-label', 'Resultado do PSE por escola');
+    scroll.append(table(['Escola', 'INEP', 'I1', 'I2', 'Prioridades sem registro'],
+      pse.details.map(([inep, name, i1, i2, missing]) => [name, inep, i1 ? 'Sim' : '—', i2 ? 'Sim' : '—', missing.join(', ') || '—'])));
+    schools.append(el('summary', 'Conferir execução por escola'), scroll);
+    detail.append(indicators, el('p', 'Apuração local de ' + pse.window.map(date).join(' a '), 'detail'), schools);
+  }
+  if (cities.length > 1) selector(parent, 'Município do PSE', cities.map(city => [city.ibge, city.label]), show);
+  parent.append(detail);
+  show(cities[0].ibge);
+}
+
+function renderSnapshot({version, updated, ibge, municipality, series, sources, deliveries, comparison, pseRegional}) {
   const panels = document.getElementById('panels');
   document.getElementById('version').textContent = '· v' + version;
   document.getElementById('stamp').textContent = 'IBGE ' + ibge + ' · Publicado em ' + date(updated);
@@ -161,20 +194,11 @@ function renderSnapshot({version, updated, ibge, series, sources, deliveries, co
     return block;
   });
 
-  const pse = series.pse;
   const school = card('Programa Saúde na Escola', [
-    ['Pactuação', sources.pse], ['Ações validadas', sources.pse_acoes],
-  ]);
-  if (pse) {
-    school.append(metric(display(pse.schools) + ' escolas pactuadas',
-      display(pse.students) + ' estudantes · Ciclo ' + pse.cycle));
-    if (pse.window) {
-      const indicators = el('div', null, 'columns');
-      indicators.append(metric(display(pse.i1, '%'), 'I1 · Escolas com ações elegíveis'),
-        metric(display(pse.i2, '%'), 'I2 · Escolas com as cinco prioridades'));
-      school.append(indicators, el('p', 'Apuração local de ' + pse.window.map(date).join(' a '), 'detail'));
-    }
-  } else school.append(el('p', 'Referência indisponível nesta publicação.'));
+    ['Portaria de adesão', sources.pse], ['Escolas no e-Gestor', sources.pse_escolas],
+    ['Ações validadas no SISAB', sources.pse_acoes], ['Nota Técnica nº 7/2026', sources.pse_rule],
+  ], true);
+  renderPse(school, [...(series.pse ? [{ibge, label: municipality, pse:series.pse}] : []), ...(pseRegional ?? [])]);
 
   editions('qualidade', 'Qualidade da Atenção Primária', 'Siaps · Área pública', 'Quadrimestre de referência', ({data, period}) => {
     const groups = [...new Set(data.map(([, indicator]) => indicator[0]))].sort();

@@ -14,6 +14,9 @@ a:focus-visible,select:focus-visible{outline:3px solid #9c6122;outline-offset:4p
 .top nav a:hover{text-decoration:underline}
 #comparison select{max-width:100%}
 summary{cursor:pointer;color:#125846;margin:.5rem 0}
+.pse-schools{overflow-x:auto}
+.pse-schools table{min-width:36rem}
+.pse-schools th:last-child,.pse-schools td:last-child{text-align:left}
 .brand{display:flex;align-items:baseline;gap:.25rem;font-weight:850;font-size:1.45rem;white-space:nowrap}
 .brand span{color:#b8e78f}
 .brand small{font-size:.72rem;font-weight:650;letter-spacing:.13em;margin-left:.45rem}
