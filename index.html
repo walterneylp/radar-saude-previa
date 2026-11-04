@@ -7,22 +7,32 @@
   <meta name="theme-color" content="#142b24">
   <title>Radar Saúde DUOG · Prévia pública</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23142b24'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='%23b8e78f' stroke-width='4'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./site.css">
-  <script src="./site.js" defer></script>
+  <link rel="stylesheet" href="./site.css?v=baf105376644">
+  <script src="./site.js?v=ee28fe8a84e0" defer></script>
 </head>
 <body>
-  <a class="skip" href="#dados">Ir para os dados</a>
   <header class="top">
     <div class="wrap top-inner">
       <a class="brand" href="./" aria-label="Radar Saúde DUOG, início">duog<span>•</span> <small>RADAR SAÚDE</small></a>
-      <nav aria-label="Navegação principal"><a href="#dados">Dados do piloto</a><a href="#andamento">Desenvolvimento</a></nav>
+      <nav id="navigation" aria-label="Navegação principal" hidden><a href="#dados">Dados do piloto</a><a href="#andamento">Desenvolvimento</a><button type="button" id="logout">Sair</button></nav>
     </div>
   </header>
-  <main>
+  <main class="wrap section" id="access">
+    <form id="login" class="panel access-panel" method="post">
+      <p class="eyebrow">Prévia de acompanhamento</p>
+      <h1>Radar Saúde DUOG</h1>
+      <p>Entre para consultar os dados de Arapiraca e o andamento do projeto.</p>
+      <label>Usuário<input id="username" autocomplete="username" required></label>
+      <label>Senha<input type="password" id="password" autocomplete="current-password" required></label>
+      <button type="submit">Entrar</button>
+      <p id="login-error" role="alert"></p>
+    </form>
+  </main>
+  <main id="preview" hidden>
     <section class="hero">
       <div class="wrap">
-        <p class="eyebrow"><span class="dot"></span> Prévia pública <span id="version"></span></p>
-        <h1>Radar Saúde <em>DUOG</em></h1>
+        <p class="eyebrow"><span class="dot"></span> Prévia de acompanhamento <span id="version"></span></p>
+        <h1 tabindex="-1">Radar Saúde <em>DUOG</em></h1>
         <p class="lead">Acompanhe os dados públicos de Arapiraca e as entregas do painel de gestão municipal da Atenção Primária.</p>
         <p class="stamp" id="stamp"></p>
       </div>
@@ -31,18 +41,13 @@
       <p class="eyebrow">Município piloto</p>
       <h2 id="dados-title">Arapiraca, Alagoas</h2>
       <p class="intro">Selecione uma competência ou um ano. Cada fonte tem sua própria data de referência.</p>
-      <p role="status" id="status">Carregando os dados do piloto…</p>
       <div class="grid" id="panels" aria-label="Painéis de dados públicos"></div>
     </section>
     <section class="progress" id="andamento" aria-labelledby="andamento-title">
       <div class="wrap section">
         <p class="eyebrow">Diário do projeto</p>
         <h2 id="andamento-title">O que está em desenvolvimento</h2>
-        <div class="milestones">
-          <article><span class="tag">Disponível no piloto</span><h3>Painéis com dados públicos</h3><p>População, rede CNES, cobertura vacinal, repasses do FNS, qualidade da APS e execução do Programa Saúde na Escola.</p></article>
-          <article><span class="tag">Em validação local</span><h3>Fluxos do gestor</h3><p>Plano 360 vinculado a planos de ação, relatório de uso por equipe e conferência de produção e compatibilidades do BPA-I e do SIGTAP.</p></article>
-          <article><span class="tag pending">Aguardando fonte</span><h3>Integração institucional</h3><p>Conexão autorizada com o Barramento, resultados do grupo M na fonte e dados nominais para os fluxos que precisam deles.</p></article>
-        </div>
+        <div class="milestones" id="deliveries"></div>
       </div>
     </section>
   </main>

@@ -49,10 +49,17 @@ function metric(value, detail) {
   return block;
 }
 
-function renderSnapshot({version, updated, ibge, series, sources}) {
+function renderSnapshot({version, updated, ibge, series, sources, deliveries}) {
   const panels = document.getElementById('panels');
   document.getElementById('version').textContent = '· v' + version;
   document.getElementById('stamp').textContent = 'IBGE ' + ibge + ' · Publicado em ' + date(updated);
+  const milestones = document.getElementById('deliveries');
+  for (const {status, title, description} of deliveries) {
+    const item = el('article');
+    item.append(el('span', status, status === 'Aguardando fonte' ? 'tag pending' : 'tag'),
+      el('h3', title), el('p', description));
+    milestones.append(item);
+  }
 
   function card(title, links, wide = false) {
     const article = el('article', null, wide ? 'panel wide' : 'panel');
@@ -146,15 +153,67 @@ function renderSnapshot({version, updated, ibge, series, sources}) {
   showVaccine(String(years[0]));
 }
 
-fetch('./dados.json')
-  .then(response => {
-    if (!response.ok) throw new Error('Dados indisponíveis');
-    return response.json();
-  })
-  .then(snapshot => {
+const login = document.getElementById('login');
+const loginError = document.getElementById('login-error');
+const preview = document.getElementById('preview');
+const access = document.getElementById('access');
+const navigation = document.getElementById('navigation');
+const username = document.getElementById('username');
+const password = document.getElementById('password');
+const submit = login.querySelector('button[type=submit]');
+const decode = value => Uint8Array.from(atob(value), character => character.charCodeAt(0));
+
+async function unlock(bundle, credentials) {
+  const base = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(credentials), 'PBKDF2', false, ['deriveKey'],
+  );
+  const key = await crypto.subtle.deriveKey(
+    {name:'PBKDF2', hash:'SHA-256', salt:decode(bundle.salt), iterations:bundle.rounds},
+    base, {name:'AES-GCM', length:256}, false, ['decrypt'],
+  );
+  const clear = await crypto.subtle.decrypt({name:'AES-GCM', iv:decode(bundle.nonce)}, key, decode(bundle.data));
+  return JSON.parse(new TextDecoder().decode(clear));
+}
+
+login.addEventListener('submit', async event => {
+  event.preventDefault();
+  if (submit.disabled) return;
+  submit.disabled = true;
+  loginError.textContent = '';
+  const credentials = JSON.stringify([username.value.trim(), password.value]);
+  password.value = '';
+  try {
+    const response = await fetch('./previa.json', {cache:'no-store'});
+    if (!response.ok) throw new Error();
+    const bundle = await response.json();
+    if (bundle.version !== 1 || bundle.rounds !== 600000) throw new Error();
+    let snapshot;
+    try {
+      snapshot = await unlock(bundle, credentials);
+    } catch {
+      loginError.textContent = 'Usuário ou senha inválidos.';
+      password.focus();
+      return;
+    }
     renderSnapshot(snapshot);
-    document.getElementById('status').hidden = true;
-  })
-  .catch(() => {
-    document.getElementById('status').textContent = 'Os dados do piloto estão temporariamente indisponíveis. Recarregue a página para tentar novamente.';
-  });
+    access.hidden = true;
+    preview.hidden = false;
+    navigation.hidden = false;
+    preview.querySelector('h1').focus();
+  } catch {
+    loginError.textContent = 'A prévia está indisponível. Tente novamente em instantes.';
+  } finally {
+    submit.disabled = false;
+  }
+});
+
+document.getElementById('logout').addEventListener('click', () => {
+  preview.hidden = true;
+  navigation.hidden = true;
+  for (const id of ['panels', 'deliveries', 'version', 'stamp']) {
+    document.getElementById(id).replaceChildren();
+  }
+  access.hidden = false;
+  login.reset();
+  username.focus();
+});
