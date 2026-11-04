@@ -29,7 +29,9 @@ jobs:
           mkdir -p _site
           cp -- index.html site.css site.js previa.json _site/
           grep -q 'id="login"' _site/index.html
-          jq -e '.version == 1 and (.data | length > 0)' _site/previa.json > /dev/null
+          jq -e '.version == 1 and .rounds == 600000 and
+            (.salt | length == 24) and (.nonce | length == 16) and
+            (.data | length > 16)' _site/previa.json > /dev/null
       - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: _site
