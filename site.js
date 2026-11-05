@@ -1,4 +1,4 @@
-import {renderQualityCharts} from './quality-charts.mjs?v=dbe275a266d0';
+import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=4b5337a595dd';
 import {metricChart, metricValue, renderEpidemiology, renderProduction} from './metric-chart.mjs?v=293acbf373e5';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
@@ -271,6 +271,15 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     renderQualityCharts(charts, data, undefined, qualitySelection);
     return block;
   }, true, period => (Number(period.slice(5)) / 4) + 'º quadrimestre de ' + period.slice(0, 4));
+
+  if (series.siaps_vinculo?.length) editions('siaps_vinculo', 'Vínculo e acompanhamento territorial · Siaps', 'Siaps · Cofinanciamento da APS', 'Revisão do vínculo territorial', ({data, cutoff}) => {
+    const body = el('div');
+    const charts = el('div');
+    if (cutoff) body.append(el('p', 'Consultado em ' + date(cutoff), 'detail'));
+    body.append(charts);
+    renderVinculo(charts, data);
+    return body;
+  }, true);
 
   editions('siaps', 'Produção assistencial da APS', 'Siaps · Práticas assistenciais', 'Competência da produção', ({data}) =>
     table(['Indicador e categoria', 'Valor publicado'],

@@ -112,6 +112,16 @@ function chart(title, rows) {
   return figure;
 }
 
+function conceptLegend() {
+  const legend = element('ul', null, 'quality-legend');
+  for (const [index, concept] of concepts.entries()) {
+    const item = element('li');
+    item.append(element('span', null, 'quality-color-' + index), concept);
+    legend.append(item);
+  }
+  return legend;
+}
+
 export function renderQualityCharts(target, municipalities, fixedGroup, selection = {}) {
   if (!municipalities.length) return;
   const controls = element('div', null, 'quality-controls');
@@ -123,13 +133,7 @@ export function renderQualityCharts(target, municipalities, fixedGroup, selectio
   if (group) options(group, groups, selection.group);
   const team = control(controls, 'Tipo de equipe', refresh);
   const indicator = control(controls, 'Indicador para comparar', refresh);
-  const legend = element('ul', null, 'quality-legend');
-  for (const [index, concept] of concepts.entries()) {
-    const item = element('li');
-    item.append(element('span', null, 'quality-color-' + index), concept);
-    legend.append(item);
-  }
-  target.replaceChildren(controls, legend, content, element('p',
+  target.replaceChildren(controls, conceptLegend(), content, element('p',
     'As barras mostram contagens de equipes nos quatro conceitos. Cada indicador tem seu próprio total. O traço indica valor indisponível.',
     'quality-note'));
   refresh();
@@ -152,5 +156,38 @@ export function renderQualityCharts(target, municipalities, fixedGroup, selectio
     content.replaceChildren(chart('Equipes por conceito em ' + selected.label, [...byCity.get(city.value).values()]),
       chart('Comparação municipal' + (indicator.value ? ' · ' + definitions.get(indicator.value) + ' · ' + team.value : ''), compared));
     Object.assign(selection, {city: city.value, group: groupCode, team: team.value, indicator: indicator.value});
+  }
+}
+
+export function renderVinculo(target, {municipios, dimensoes, dados}) {
+  if (!dados.length) return;
+  const controls = element('div', null, 'quality-controls');
+  const content = element('div', null, 'quality-figures');
+  content.setAttribute('aria-live', 'polite');
+  const cities = Object.entries(municipios);
+  const sections = Object.entries(dimensoes);
+  const periods = [...new Set(dados.map(row => row.quadrimestre))].sort().reverse();
+  const teamTypes = [...new Set(dados.map(row => row.tipo_equipe))];
+  const city = control(controls, 'Município do vínculo territorial', refresh);
+  options(city, cities, '2700300');
+  const quarter = control(controls, 'Quadrimestre do vínculo territorial', refresh);
+  options(quarter, periods.map(value => [value, Number(value.slice(5)) / 4 + 'º quadrimestre de ' + value.slice(0, 4)]));
+  const team = control(controls, 'Tipo de equipe no vínculo territorial', refresh);
+  options(team, teamTypes.map(value => [value, value]), 'eSF');
+  const dimension = control(controls, 'Dimensão para comparação', refresh);
+  options(dimension, sections, 'final');
+  target.replaceChildren(controls, conceptLegend(), content, element('p',
+    'As barras mostram quantas equipes receberam cada conceito no Siaps. Cadastro, acompanhamento e resultado final são distribuições distintas. O traço indica recorte sem resultado publicado.',
+    'quality-note'));
+  refresh();
+
+  function refresh() {
+    const index = new Map(dados.filter(row => row.quadrimestre === quarter.value && row.tipo_equipe === team.value)
+      .map(row => [row.ibge + '/' + row.dimensao, new Map(Object.entries(row.contagens))]));
+    const counts = (ibge, key) => index.get(ibge + '/' + key) ?? new Map();
+    const local = sections.map(([key, label]) => ({label, counts: counts(city.value, key)}));
+    const compared = cities.map(([key, label]) => ({label, counts: counts(key, dimension.value)}));
+    content.replaceChildren(chart('Equipes em ' + municipios[city.value] + ' · ' + team.value, local),
+      chart('Comparação municipal · ' + dimensoes[dimension.value] + ' · ' + team.value, compared));
   }
 }
