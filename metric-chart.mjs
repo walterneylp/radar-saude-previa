@@ -143,11 +143,17 @@ export function renderApsPayments(target, {municipios, dados, componentes, valid
   if (municipios['2700300']) city.value = '2700300';
   const payment = selectField(filters, 'Parcela financeira', months.map(month => [month, date(month)]), refresh);
   const component = selectField(filters, 'Componente APS', Object.entries(componentes), refresh);
+  if (dados.some(row => row.detalhes?.esf)) component.value = 'esf';
   const sources = el('ul', null, 'quality-note');
   for (const [label, url] of [
     ['Equipes e estabelecimentos homologados', 'https://relatorioaps.saude.gov.br/gerenciaaps/ines-cnes-homologados'],
     ['Equipes e serviços com ausência de envio de produção', 'https://relatorioaps.saude.gov.br/gerenciaaps/ausencia-envio-producao'],
     ['Solicitações de credenciamento e custeio', 'https://gaps.saude.gov.br/gestaofederal/publico/relatorio-solicitacoes'],
+    ['Critérios e tetos de credenciamento · Nota Técnica 282/2023', 'https://www.gov.br/saude/pt-br/centrais-de-conteudo/publicacoes/notas-tecnicas/2023/nota-tecnica-no-282-2023.pdf'],
+    ['Estratos do IED · Nota Técnica 122/2024', 'https://www.gov.br/saude/pt-br/centrais-de-conteudo/publicacoes/notas-tecnicas/2024/nota-tecnica-no-122-2024-cgfap-saps-ms.pdf/view'],
+    ['Valores e regras de cofinanciamento · Portaria de Consolidação 6/2017', 'https://bvsms.saude.gov.br/bvs/saudelegis/gm/2017/prc0006_03_10_2017_comp.html'],
+    ['Vínculo e qualidade · Nota Técnica 8/2026', 'https://www.gov.br/saude/pt-br/centrais-de-conteudo/publicacoes/notas-tecnicas/2026/nota-tecnica-no-8-2026-deaps-saps-ms.pdf/view'],
+    ['Credenciamento e valores de referência da Saúde Bucal', 'https://www.gov.br/saude/pt-br/composicao/saps/brasil-sorridente/saude-bucal-na-aps/credenciamento-de-esb/credenciamento-de-esb/'],
   ]) {
     const item = el('li');
     const link = el('a', label);
@@ -165,21 +171,42 @@ export function renderApsPayments(target, {municipios, dados, componentes, valid
       detail.replaceChildren(el('p', 'Parcela indisponível para este município.'));
       return;
     }
-    const stats = row.componentes[component.value] ?? {};
+    const kind = component.value;
+    const stats = row.componentes[kind] ?? {};
+    const team = row.detalhes?.[kind];
     const rows = [['Teto publicado', stats.teto], ['Credenciados', stats.credenciados],
       ['Homologados', stats.homologados], ['Pagos', stats.pagos]].map(([label, value]) => ({label, value}));
     const figures = el('div', null, 'quality-figures');
     const financial = row.planos.map(plan => ({label: plan.plano, value: plan.centavos}));
-    figures.append(metricChart(componentes[component.value], rows, 'count'),
-      metricChart('Custeio da parcela por plano orçamentário', financial, 'money'));
+    figures.append(metricChart(componentes[kind], rows, 'count'));
+    if (team) {
+      const amounts = Object.entries(team.valores).filter(([key, value]) => key !== 'total' && value != null)
+        .map(([key, value]) => ({label: paymentLabels[key], value}));
+      figures.append(metricChart('Valores do componente na parcela', amounts, 'money'));
+    } else {
+      figures.append(metricChart('Custeio da parcela por plano orçamentário', financial, 'money'));
+    }
     detail.replaceChildren(el('p', 'Competência CNES usada pelo e-Gestor · ' + date(row.competencia_cnes), 'quality-note'), figures);
     if (stats.teto != null && stats.credenciados != null) {
-      const difference = stats.teto - stats.credenciados;
+      const shared = ['esf', 'eap'].includes(kind) && row.componentes.esf?.credenciados != null
+        && row.componentes.eap?.credenciados != null;
+      const occupied = shared
+        ? kind === 'esf' ? row.componentes.esf.credenciados + row.componentes.eap.credenciados / 2
+          : row.componentes.esf.credenciados * 2 + row.componentes.eap.credenciados
+        : stats.credenciados;
+      const difference = stats.teto - occupied;
       const summary = difference >= 0 ? 'Margem até o teto publicado' : 'Credenciados acima do teto';
-      detail.append(el('p', summary + ' · ' + metricValue(Math.abs(difference), 'count') +
-        '. A aprovação de novos credenciamentos segue os critérios do Ministério da Saúde.', 'quality-note'));
+      const wholeTeams = difference >= 0 ? Math.floor(difference) : -difference;
+      detail.append(el('p', summary + ' · ' + metricValue(wholeTeams, 'count') +
+        (shared ? '. O teto é compartilhado. Duas eAP equivalem a uma eSF.' : '.') +
+        ' A aprovação de novos credenciamentos segue os critérios do Ministério da Saúde.', 'quality-note'));
     }
-    if (component.value === 'acs') {
+    if (['esf', 'eap', 'esb'].includes(kind)) {
+      detail.append(el('h4', 'Detalhamento da equipe'));
+      if (team) appendTeamPayment(detail, kind, team, financial);
+      else detail.append(el('p', 'Detalhamento indisponível para esta parcela.'));
+    }
+    if (kind === 'acs') {
       detail.append(el('h4', 'Validação de ACS'));
       if (row.validacao_acs) {
         detail.append(reportTable(['Situação na fonte', 'Registros'], Object.entries(validacoes)
@@ -190,6 +217,57 @@ export function renderApsPayments(target, {municipios, dados, componentes, valid
       }
     }
   }
+}
+
+const paymentLabels = {
+  equidade: 'Componente Equidade', qualidade: 'Qualidade', vinculo: 'Vínculo e acompanhamento territorial',
+  implantacao: 'Implantação de equipes', ajuste: 'Ajuste', desconto: 'Desconto', total: 'Total na fonte',
+  pagamento: 'Pagamento de custeio', pagas_20h: 'Equipes pagas de 20 h', pagas_30h: 'Equipes pagas de 30 h',
+  pagas_i: 'Equipes pagas · Modalidade I', pagas_ii: 'Equipes pagas · Modalidade II',
+  quilombolas_assentados_i: 'Quilombolas e assentados · Modalidade I',
+  quilombolas_assentados_ii: 'Quilombolas e assentados · Modalidade II',
+  modalidade_i: 'Custeio por equipe · Modalidade I', modalidade_ii: 'Custeio por equipe · Modalidade II',
+};
+const suspensionLabels = {
+  producao: 'Ausência de envio de produção', duplicidade: 'Duplicidade', composicao: 'Composição da equipe',
+  controle: 'Órgão de controle', vinculo: 'Vínculo', carga_horaria: 'Carga horária',
+};
+
+function appendTeamPayment(target, kind, team, financial) {
+  const groups = kind === 'esb'
+    ? [['Classificações de qualidade na parcela', team.classificacoes_qualidade?.join(', ') || '—']]
+    : [['Estrato municipal do IED', team.estrato == null ? '—' : 'Estrato ' + team.estrato],
+      ['Classificação municipal de qualidade', team.classificacao_qualidade ?? '—'],
+      ['Classificação municipal de vínculo', team.classificacao_vinculo ?? '—']];
+  for (const [key, value] of Object.entries(team.equipes ?? {})) {
+    groups.push([paymentLabels[key], metricValue(value, 'count')]);
+  }
+  target.append(reportTable(['Indicador', 'Resultado na parcela'], groups, 'Classificação e composição das equipes'));
+
+  const amounts = Object.entries(team.valores).map(([key, value]) => [
+    kind === 'esb' && key === 'qualidade' ? 'Qualidade · pagamento separado' : paymentLabels[key],
+    metricValue(value, 'money'),
+  ]);
+  target.append(reportTable(['Rubrica', 'Valor'], amounts, 'Demonstrativo financeiro da equipe'));
+  if (kind === 'esb') {
+    target.append(el('p', 'O total de eSB 40 h corresponde ao relatório de custeio. A qualidade tem demonstrativo próprio.', 'quality-note'),
+      reportTable(['Referência oficial por equipe', 'Valor'], Object.entries(team.referencias ?? {})
+        .map(([key, value]) => [paymentLabels[key], metricValue(value, 'money')]), 'Referências financeiras da Saúde Bucal'));
+  }
+  const checks = team.validacao;
+  target.append(el('h4', 'Validação e suspensões'));
+  if (checks) {
+    const rows = [['Equipes no detalhamento', checks.equipes], ['Equipes com suspensão indicada', checks.suspensas],
+      ...Object.entries(checks.motivos).filter(([, value]) => value != null)
+        .map(([key, value]) => [suspensionLabels[key], value])];
+    target.append(reportTable(['Situação na fonte', 'Equipes'], rows.map(([label, value]) => [label, metricValue(value, 'count')]),
+      'Suspensões agregadas por motivo'), el('p', 'Uma equipe pode ter mais de um motivo de suspensão.', 'quality-note'));
+  } else {
+    target.append(el('p', 'Validação de equipes indisponível para esta parcela.'));
+  }
+  const plans = el('details');
+  plans.append(el('summary', 'Ver custeio por plano orçamentário'), metricChart('Custeio da parcela por plano orçamentário', financial, 'money'));
+  target.append(plans);
 }
 
 export function renderProduction(target, {municipios, modalidades, dados}, {source, cutoff} = {}) {
@@ -238,6 +316,82 @@ export function renderProduction(target, {municipios, modalidades, dados}, {sour
       [['Recorte', 'IBGE', 'Município', 'Modalidade', 'Competência', 'Quantidade', 'Consulta em', 'Fonte'],
         ...compare.map(item => ['Comparação municipal', item.ibge, item.label, modalidades[metric.value], period.value, item.value, cutoff, source]),
         ...timeline.map(item => ['Série mensal', city.value, municipios[city.value], modalidades[metric.value], item.month, item.value, cutoff, source])]));
+    results.replaceChildren(figures, download);
+  }
+}
+
+export function renderSisabProduction(target, {municipios, modalidades, dados}, {source, cutoff} = {}) {
+  if (!dados.length) return;
+  const filters = el('div', null, 'quality-controls');
+  const results = el('div');
+  results.setAttribute('aria-live', 'polite');
+  const city = selectField(filters, 'Município da produção SISAB', Object.entries(municipios), selectCity);
+  const type = selectField(filters, 'Tipo de produção SISAB', [], selectType);
+  const period = selectField(filters, 'Competência SISAB', [], selectMonth);
+  const category = selectField(filters, 'Categoria profissional', [], refresh);
+  const monthsLabel = value => value.split('-').reverse().join('/');
+  const categories = rows => [...new Set(rows.map(row => row.categoria))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  const guidance = el('p', null, 'quality-note');
+  const submission = el('a', 'Validação de Produção e Envio no SISAB');
+  submission.href = 'https://sisab.saude.gov.br/paginas/acessoRestrito/relatorio/federal/envio/RelValidacao.xhtml';
+  guidance.append('Para conferir o processamento dos lotes enviados, use ', submission, '.');
+  target.replaceChildren(filters,
+    el('p', 'Produção publicada pelo SISAB por categoria profissional. As modalidades têm unidades próprias. O traço indica valor indisponível.', 'quality-note'),
+    results, guidance);
+  selectCity();
+
+  function options(select, entries) {
+    const previous = select.value;
+    replaceOptions(select, entries);
+    if (entries.some(([value]) => value === previous)) select.value = previous;
+  }
+
+  function cityRows() {
+    return dados.filter(row => row.ibge === city.value);
+  }
+
+  function typeRows() {
+    return cityRows().filter(row => row.modalidade === type.value);
+  }
+
+  function selectCity() {
+    const available = new Set(cityRows().map(row => row.modalidade));
+    options(type, Object.entries(modalidades).filter(([key]) => available.has(key)));
+    selectType();
+  }
+
+  function selectType() {
+    const months = [...new Set(typeRows().map(row => row.competencia))].sort().reverse();
+    options(period, months.map(value => [value, monthsLabel(value)]));
+    selectMonth();
+  }
+
+  function selectMonth() {
+    const labels = categories(typeRows().filter(row => row.competencia === period.value));
+    options(category, [['', 'Todas as categorias publicadas'], ...labels.map(value => [value, value])]);
+    refresh();
+  }
+
+  function refresh() {
+    const rows = typeRows().filter(row => !category.value || row.categoria === category.value);
+    const snapshot = rows.filter(row => row.competencia === period.value)
+      .sort((a, b) => (b.valor ?? -1) - (a.valor ?? -1) || a.categoria.localeCompare(b.categoria, 'pt-BR'));
+    const figures = el('div', null, 'quality-figures');
+    figures.append(metricChart(modalidades[type.value] + ' por categoria · ' + monthsLabel(period.value),
+      snapshot.map(row => ({label: row.categoria, value: row.valor})), 'count'));
+    const timeline = category.value ? rows.filter(row => row.competencia <= period.value)
+      .sort((a, b) => a.competencia.localeCompare(b.competencia)) : [];
+    if (timeline.length) {
+      figures.append(metricChart('Evolução · ' + category.value,
+        timeline.map(row => ({label: monthsLabel(row.competencia), value: row.valor, color: palette[0]})), 'count'));
+    }
+    const download = el('button', 'Baixar produção SISAB em CSV', 'chart-download');
+    download.type = 'button';
+    download.addEventListener('click', () => downloadCsv(
+      'radar-sisab-' + city.value + '-' + type.value + '-' + period.value + '.csv',
+      [['IBGE', 'Município', 'Competência', 'Tipo de produção', 'Categoria profissional', 'Quantidade', 'Consulta em', 'Fonte'],
+        ...(timeline.length ? timeline : snapshot).map(row => [row.ibge, municipios[row.ibge], row.competencia,
+          modalidades[row.modalidade], row.categoria, row.valor, cutoff, source])]));
     results.replaceChildren(figures, download);
   }
 }
