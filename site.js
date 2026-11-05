@@ -179,7 +179,13 @@ function renderVaccination(parent, cities) {
 }
 
 function renderSnapshot({version, updated, ibge, municipality, series, sources, deliveries, comparison, pseRegional}) {
-  const panels = document.getElementById('panels');
+  const modules = {
+    ibge: 'dados', cnes: 'rede', rede_municipal: 'rede', equipes_cnes: 'rede',
+    fns: 'financiamento', pagamento_aps: 'financiamento', qualidade: 'indicadores',
+    siaps_vinculo: 'indicadores', siaps: 'producao', siaps_producao: 'producao',
+    sisab_producao: 'producao', epidemiologia: 'vigilancia',
+  };
+  clearSnapshot();
   document.getElementById('version').textContent = '· v' + version;
   document.getElementById('stamp').textContent = 'IBGE ' + ibge + ' · Publicado em ' + date(updated);
   const milestones = document.getElementById('deliveries');
@@ -191,7 +197,7 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
   }
   renderComparison(comparison);
 
-  function card(title, links, wide = false) {
+  function card(module, title, links, wide = false) {
     const article = el('article', null, wide ? 'panel wide' : 'panel');
     const body = el('div');
     const source = el('p', 'Fonte · ', 'source');
@@ -202,12 +208,12 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
       source.append(link);
     }
     article.append(el('h3', title), body, source);
-    panels.append(article);
+    document.querySelector('#' + module + ' [data-cards]').append(article);
     return body;
   }
 
   function editions(source, title, link, label, render, wide = false, format = date) {
-    const body = card(title, [[link, sources[source]]], wide);
+    const body = card(modules[source], title, [[link, sources[source]]], wide);
     const records = series[source];
     if (!records.length) {
       body.append(el('p', 'Referência indisponível nesta publicação.'));
@@ -289,7 +295,7 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     return body;
   }, true);
 
-  const school = card('Programa Saúde na Escola', [
+  const school = card('pse', 'Programa Saúde na Escola', [
     ['Portaria de adesão', sources.pse], ['Escolas no e-Gestor', sources.pse_escolas],
     ['Ações validadas no SISAB', sources.pse_acoes], ['Nota Técnica nº 7/2026', sources.pse_rule],
   ], true);
@@ -343,7 +349,7 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     return body;
   }, true);
 
-  const vaccine = card('Cobertura vacinal', [['Painel CONASEMS · RNDS', sources.vacinacao]], true);
+  const vaccine = card('vigilancia', 'Cobertura vacinal', [['Painel CONASEMS · RNDS', sources.vacinacao]], true);
   renderVaccination(vaccine, series.vacinacao[0]?.data ?? []);
 }
 
@@ -352,10 +358,44 @@ const loginError = document.getElementById('login-error');
 const preview = document.getElementById('preview');
 const access = document.getElementById('access');
 const navigation = document.getElementById('navigation');
+const menuToggle = document.getElementById('module-toggle');
+const logout = document.getElementById('logout');
+const modules = [...document.querySelectorAll('.dashboard-module')];
 const username = document.getElementById('username');
 const password = document.getElementById('password');
 const submit = login.querySelector('button[type=submit]');
 const decode = value => Uint8Array.from(atob(value), character => character.charCodeAt(0));
+
+function clearSnapshot() {
+  for (const node of preview.querySelectorAll('[data-cards], #comparison, #deliveries, #version, #stamp')) {
+    node.replaceChildren();
+  }
+}
+
+function showModule(focus) {
+  if (preview.hidden) return;
+  const selected = modules.find(module => '#' + module.id === location.hash) ?? modules[0];
+  for (const module of modules) module.hidden = module !== selected;
+  for (const link of navigation.querySelectorAll('a')) {
+    if (link.hash === '#' + selected.id) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  }
+  menuToggle.setAttribute('aria-expanded', 'false');
+  if (focus) selected.querySelector('h2').focus();
+}
+
+navigation.addEventListener('click', event => {
+  const link = event.target.closest('a');
+  if (!link || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  if (location.hash !== link.hash) history.pushState(null, '', link.hash);
+  showModule(true);
+});
+
+window.addEventListener('hashchange', () => showModule(true));
+menuToggle.addEventListener('click', () => {
+  menuToggle.setAttribute('aria-expanded', String(menuToggle.getAttribute('aria-expanded') === 'false'));
+});
 
 async function unlock(bundle, credentials) {
   const base = await crypto.subtle.importKey(
@@ -392,8 +432,9 @@ login.addEventListener('submit', async event => {
     renderSnapshot(snapshot);
     access.hidden = true;
     preview.hidden = false;
-    navigation.hidden = false;
-    preview.querySelector('h1').focus();
+    logout.hidden = false;
+    showModule(Boolean(location.hash));
+    if (!location.hash) preview.querySelector('h1').focus();
   } catch {
     loginError.textContent = 'A prévia está indisponível. Tente novamente em instantes.';
   } finally {
@@ -401,12 +442,10 @@ login.addEventListener('submit', async event => {
   }
 });
 
-document.getElementById('logout').addEventListener('click', () => {
+logout.addEventListener('click', () => {
   preview.hidden = true;
-  navigation.hidden = true;
-  for (const id of ['panels', 'comparison', 'deliveries', 'version', 'stamp']) {
-    document.getElementById(id).replaceChildren();
-  }
+  logout.hidden = true;
+  clearSnapshot();
   access.hidden = false;
   login.reset();
   username.focus();

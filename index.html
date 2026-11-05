@@ -7,16 +7,16 @@
   <meta name="theme-color" content="#142b24">
   <title>Radar Saúde DUOG · Prévia pública</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23142b24'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='%23b8e78f' stroke-width='4'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./site.css?v=f81784733d3b">
+  <link rel="stylesheet" href="./site.css?v=a675e77dd726">
   <link rel="stylesheet" href="./quality-charts.css?v=9ebe78367f59">
   <link rel="stylesheet" href="./metric-chart.css?v=be0d35501a16">
-  <script type="module" src="./site.js?v=ab1f180b1445"></script>
+  <script type="module" src="./site.js?v=e59a22f82c6d"></script>
 </head>
 <body>
   <header class="top">
     <div class="wrap top-inner">
       <a class="brand" href="./" aria-label="Radar Saúde DUOG, início">duog<span>•</span> <small>RADAR SAÚDE</small></a>
-      <nav id="navigation" aria-label="Navegação principal" hidden><a href="#dados">Arapiraca</a><a href="#comparativo">Municípios</a><a href="#andamento">Entregas</a><button type="button" id="logout">Sair</button></nav>
+      <button type="button" id="logout" hidden>Sair</button>
     </div>
   </header>
   <main class="wrap section" id="access">
@@ -39,25 +39,75 @@
         <p class="stamp" id="stamp"></p>
       </div>
     </section>
-    <section class="wrap section" id="dados" aria-labelledby="dados-title">
-      <p class="eyebrow">Município piloto</p>
-      <h2 id="dados-title">Arapiraca, Alagoas</h2>
-      <p class="intro">Selecione uma competência ou um ano. Cada fonte tem sua própria data de referência.</p>
-      <div class="grid" id="panels" aria-label="Painéis de dados públicos"></div>
-    </section>
-    <section class="wrap section" id="comparativo" aria-labelledby="comparison-title">
-      <p class="eyebrow">Alagoas e Pernambuco</p>
-      <h2 id="comparison-title">Comparativo municipal</h2>
-      <p class="intro">Escolha um indicador e uma referência para consultar os municípios no mesmo recorte da fonte.</p>
-      <div id="comparison"></div>
-    </section>
-    <section class="progress" id="andamento" aria-labelledby="andamento-title">
-      <div class="wrap section">
-        <p class="eyebrow">Diário do projeto</p>
-        <h2 id="andamento-title">O que está em desenvolvimento</h2>
-        <div class="milestones" id="deliveries"></div>
+    <div class="dashboard wrap">
+      <aside class="dashboard-sidebar">
+        <button id="module-toggle" type="button" aria-controls="navigation" aria-expanded="false">Módulos do Radar <span aria-hidden="true"></span></button>
+        <nav id="navigation" aria-label="Módulos do Radar">
+          <p class="eyebrow">Visão municipal</p>
+          <ul>
+            <li><a href="#dados">Visão geral</a></li>
+            <li><a href="#rede">Rede e equipes</a></li>
+            <li><a href="#comparativo">Comparativo municipal</a></li>
+          </ul>
+          <p class="eyebrow">Gestão da saúde</p>
+          <ul>
+            <li><a href="#indicadores">Indicadores e vínculo</a></li>
+            <li><a href="#producao">Produção APS</a></li>
+            <li><a href="#vigilancia">Vigilância e vacinação</a></li>
+            <li><a href="#pse">Saúde na Escola</a></li>
+            <li><a href="#financiamento">Financiamento</a></li>
+          </ul>
+          <p class="eyebrow">Projeto</p>
+          <ul>
+            <li><a href="#andamento">Entregas</a></li>
+          </ul>
+        </nav>
+      </aside>
+      <div id="panels" class="dashboard-content">
+        <section id="dados" class="dashboard-module" aria-labelledby="dados-title">
+          <p class="eyebrow">Município piloto</p>
+          <h2 id="dados-title" tabindex="-1">Arapiraca, Alagoas</h2>
+          <p class="intro">Use o menu para consultar os painéis. Cada fonte tem sua própria data de referência.</p>
+          <div class="grid" data-cards></div>
+        </section>
+        <section id="rede" class="dashboard-module" aria-labelledby="rede-title" hidden>
+          <h2 id="rede-title" tabindex="-1">Rede e equipes</h2>
+          <p class="intro">Estabelecimentos, rede pública municipal e equipes cadastradas no CNES.</p>
+          <div class="grid" data-cards></div>
+        </section>
+        <section id="comparativo" class="dashboard-module" aria-labelledby="comparison-title" hidden>
+          <p class="eyebrow">Alagoas e Pernambuco</p>
+          <h2 id="comparison-title" tabindex="-1">Comparativo municipal</h2>
+          <p class="intro">Escolha um indicador e uma referência para consultar os municípios no mesmo recorte da fonte.</p>
+          <div id="comparison"></div>
+        </section>
+        <section id="indicadores" class="dashboard-module" aria-labelledby="indicadores-title" hidden>
+          <h2 id="indicadores-title" tabindex="-1">Indicadores e vínculo</h2>
+          <div class="grid" data-cards></div>
+        </section>
+        <section id="producao" class="dashboard-module" aria-labelledby="producao-title" hidden>
+          <h2 id="producao-title" tabindex="-1">Produção da Atenção Primária</h2>
+          <div class="grid" data-cards></div>
+        </section>
+        <section id="vigilancia" class="dashboard-module" aria-labelledby="vigilancia-title" hidden>
+          <h2 id="vigilancia-title" tabindex="-1">Vigilância e vacinação</h2>
+          <div class="grid" data-cards></div>
+        </section>
+        <section id="pse" class="dashboard-module" aria-labelledby="pse-title" hidden>
+          <h2 id="pse-title" tabindex="-1">Saúde na Escola</h2>
+          <div class="grid" data-cards></div>
+        </section>
+        <section id="financiamento" class="dashboard-module" aria-labelledby="financiamento-title" hidden>
+          <h2 id="financiamento-title" tabindex="-1">Financiamento</h2>
+          <div class="grid" data-cards></div>
+        </section>
+        <section id="andamento" class="dashboard-module" aria-labelledby="andamento-title" hidden>
+          <p class="eyebrow">Diário do projeto</p>
+          <h2 id="andamento-title" tabindex="-1">Andamento das entregas</h2>
+          <div class="milestones" id="deliveries"></div>
+        </section>
       </div>
-    </section>
+    </div>
   </main>
   <footer><div class="wrap"><strong>DUOG · Radar Saúde</strong><p>Prévia de consulta com dados públicos agregados. As atualizações entram a cada publicação.</p></div></footer>
 </body>
