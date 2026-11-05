@@ -78,6 +78,7 @@ function replaceOptions(select, options) {
 function selectField(parent, label, options, refresh) {
   const field = el('label', label);
   const select = el('select');
+  select.setAttribute('aria-label', label);
   replaceOptions(select, options);
   select.addEventListener('change', refresh);
   field.append(select);

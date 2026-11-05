@@ -1,5 +1,5 @@
 import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=a6a152df1b2a';
-import {downloadCsv, metricChart, metricValue, renderApsPayments, renderEpidemiology, renderMunicipalNetwork, renderProduction} from './metric-chart.mjs?v=e0c5a9659584';
+import {downloadCsv, metricChart, metricValue, renderApsPayments, renderEpidemiology, renderMunicipalNetwork, renderProduction, renderSisabProduction} from './metric-chart.mjs?v=3d388f2422d9';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
@@ -325,6 +325,15 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     if (cutoff) body.append(el('p', 'Consultado em ' + date(cutoff), 'detail'));
     body.append(charts);
     renderProduction(charts, data, {cutoff, source: sources.siaps_producao});
+    return body;
+  }, true);
+
+  if (series.sisab_producao?.length) editions('sisab_producao', 'Produção por categoria profissional · SISAB', 'SISAB · Relatório de Produção', 'Revisão da produção SISAB', ({data, cutoff}) => {
+    const body = el('div');
+    const charts = el('div');
+    if (cutoff) body.append(el('p', 'Consultado em ' + date(cutoff), 'detail'));
+    body.append(charts);
+    renderSisabProduction(charts, data, {cutoff, source: sources.sisab_producao});
     return body;
   }, true);
 
