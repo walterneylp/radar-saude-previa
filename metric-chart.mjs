@@ -74,6 +74,85 @@ function selectField(parent, label, options, refresh) {
   return select;
 }
 
+function svgElement(name, attributes = {}, text) {
+  const node = document.createElementNS('http://www.w3.org/2000/svg', name);
+  for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+function weeklyCurve(label, values, lastWeek, color) {
+  const figure = el('figure', null, 'metric-chart weekly-curve');
+  figure.append(el('figcaption', label));
+  if (!values.length) {
+    figure.append(el('p', 'Série semanal indisponível neste recorte.'));
+    return figure;
+  }
+  const peak = Math.max(...values);
+  const peakLabel = metricValue(peak, 'count') + (peak === 1 ? ' notificação' : ' notificações');
+  const high = Math.max(1, peak);
+  const x = index => 42 + 264 * index / Math.max(lastWeek - 1, 1);
+  const y = value => 96 - 80 * value / high;
+  const plot = svgElement('svg', {viewBox: '0 0 320 122', role: 'img',
+    'aria-label': label + ', pico de ' + peakLabel});
+  for (const value of [0, high]) {
+    plot.append(svgElement('line', {x1: x(0), x2: x(lastWeek - 1), y1: y(value), y2: y(value), class: 'weekly-gridline'}),
+      svgElement('text', {x: 39, y: y(value) + 4, 'text-anchor': 'end'}, metricValue(value, 'count')));
+  }
+  const ticks = [1, 13, 26, 39].filter(week => week < lastWeek - 4).concat(lastWeek);
+  if (lastWeek > 1 && ticks[0] !== 1) ticks.unshift(1);
+  for (const week of ticks) {
+    plot.append(svgElement('text', {x: x(week - 1), y: 114, 'text-anchor': 'middle'}, week));
+  }
+  const points = values.map((value, index) => [x(index), y(value)].join(',')).join(' ');
+  plot.append(values.length === 1
+    ? svgElement('circle', {cx: x(0), cy: y(values[0]), r: 3, fill: color})
+    : svgElement('polyline', {points, stroke: color, class: 'weekly-line'}));
+  figure.append(plot, el('p', 'SE 01–' + String(values.length).padStart(2, '0') +
+    ' · Pico de ' + peakLabel, 'quality-note'));
+  return figure;
+}
+
+function weeklySection(chosenYear, entries, chosen, colors) {
+  const section = el('section', null, 'epidemiology-weekly');
+  section.append(el('h3', 'Notificações por semana epidemiológica · ' + chosenYear));
+  const series = entries.map(([key, info]) => ({
+    label: info.label, values: chosen.get(key)?.semanas ?? [], color: colors.get(key),
+  }));
+  const lastWeek = Math.max(...series.map(item => item.values.length));
+  if (!lastWeek) {
+    section.append(el('p', 'Séries semanais indisponíveis para este município e ano.'));
+    return section;
+  }
+  section.append(el('p', 'O eixo horizontal mostra a semana dos primeiros sintomas. Cada gráfico tem sua própria escala. A prévia parcial termina na última semana com registros no arquivo nacional.', 'quality-note'));
+  const charts = el('div', null, 'weekly-charts');
+  for (const item of series) charts.append(weeklyCurve(item.label, item.values, lastWeek, item.color));
+  const detail = el('details');
+  detail.append(el('summary', 'Consultar valores por semana epidemiológica'));
+  const box = el('div', null, 'quality-table');
+  box.tabIndex = 0;
+  box.setAttribute('role', 'region');
+  box.setAttribute('aria-label', 'Notificações por semana epidemiológica');
+  const table = el('table');
+  const head = table.createTHead().insertRow();
+  for (const label of ['Semana', ...series.map(item => item.label)]) {
+    const th = el('th', label);
+    th.scope = 'col';
+    head.append(th);
+  }
+  const body = table.createTBody();
+  for (let index = 0; index < lastWeek; index++) {
+    const row = body.insertRow();
+    const th = el('th', 'SE ' + String(index + 1).padStart(2, '0'));
+    th.scope = 'row';
+    row.append(th, ...series.map(item => el('td', metricValue(item.values[index], 'count'))));
+  }
+  box.append(table);
+  detail.append(box);
+  section.append(charts, detail);
+  return section;
+}
+
 export function renderEpidemiology(target, {municipios, agravos, dados}) {
   if (!dados.length) return;
   const filters = el('div', null, 'quality-controls');
@@ -130,7 +209,9 @@ export function renderEpidemiology(target, {municipios, agravos, dados}) {
         return {label: value + (record?.situacao === 'preliminar' ? ' · Preliminar' : ''),
           value: record?.notificacoes, color};
       }), 'count'));
-    results.replaceChildren(figures, yearTable(chosen, measure));
+    results.replaceChildren(figures);
+    if (group.value === 'arboviroses') results.append(weeklySection(chosenYear, entries, chosen, colors));
+    results.append(yearTable(chosen, measure));
   }
 
   function yearTable(chosen, measure) {
