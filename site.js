@@ -1,3 +1,5 @@
+import {renderQualityCharts} from './quality-charts.mjs?v=dbe275a266d0';
+
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
 const display = (value, suffix = '') => value == null ? '—' : number.format(value) + suffix;
@@ -160,8 +162,8 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     return body;
   }
 
-  function editions(source, title, link, label, render) {
-    const body = card(title, [[link, sources[source]]]);
+  function editions(source, title, link, label, render, wide = false, format = date) {
+    const body = card(title, [[link, sources[source]]], wide);
     const records = series[source];
     if (!records.length) {
       body.append(el('p', 'Referência indisponível nesta publicação.'));
@@ -171,7 +173,7 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     detail.setAttribute('aria-live', 'polite');
     const show = value => detail.replaceChildren(render(records.find(item => item.period === value)));
     if (records.length > 1) {
-      selector(body, label, records.map(item => [item.period, date(item.period)]), show);
+      selector(body, label, records.map(item => [item.period, format(item.period)]), show);
     }
     body.append(detail);
     show(records[0].period);
@@ -200,19 +202,16 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
   ], true);
   renderPse(school, [...(series.pse ? [{ibge, label: municipality, pse:series.pse}] : []), ...(pseRegional ?? [])]);
 
-  editions('qualidade', 'Qualidade da Atenção Primária', 'Siaps · Área pública', 'Quadrimestre de referência', ({data, period}) => {
-    const groups = [...new Set(data.map(([, indicator]) => indicator[0]))].sort();
-    const missing = ['C', 'B', 'M'].filter(group => !groups.includes(group));
-    const block = metric(groups.join(' e ') || '—', 'Grupos com resultados carregados · ' + date(period));
-    if (missing.length) block.append(el('p', 'Grupos sem resultados carregados nesta referência · ' + missing.join(', '), 'detail'));
-    const details = el('details');
-    details.append(el('summary', 'Conferir equipes por indicador e conceito'));
-    details.append(table(['Indicador, equipe e conceito', 'Equipes'],
-      data.map(([team, indicator, name, concept, total]) =>
-        [[indicator, name, team, concept].filter(Boolean).join(' · '), display(total)])));
-    block.append(details);
+  const qualitySelection = {};
+  editions('qualidade', 'Qualidade da Atenção Primária', 'Siaps · Área pública', 'Quadrimestre de referência', ({data, preliminary, generated}) => {
+    const block = el('div');
+    if (preliminary) block.append(el('p', 'Dados preliminares do Siaps', 'tag pending'));
+    if (generated) block.append(el('p', 'Relatório gerado em ' + generated, 'detail'));
+    const charts = el('div');
+    block.append(charts);
+    renderQualityCharts(charts, data, undefined, qualitySelection);
     return block;
-  });
+  }, true, period => (Number(period.slice(5)) / 4) + 'º quadrimestre de ' + period.slice(0, 4));
 
   editions('siaps', 'Produção assistencial da APS', 'Siaps · Práticas assistenciais', 'Competência da produção', ({data}) =>
     table(['Indicador e categoria', 'Valor publicado'],

@@ -27,7 +27,7 @@ jobs:
       - name: Preparar os arquivos da prévia
         run: |
           mkdir -p _site
-          cp -- index.html site.css site.js previa.json _site/
+          cp -- index.html site.css site.js quality-charts.css quality-charts.mjs previa.json _site/
           grep -q 'id="login"' _site/index.html
           jq -e '.version == 1 and .rounds == 600000 and
             (.salt | length == 24) and (.nonce | length == 16) and
