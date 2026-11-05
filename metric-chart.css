@@ -1,0 +1,12 @@
+.metric-chart {--metric-value-width:4.25rem;margin:.8rem 0;padding:.85rem;border:1px solid #cbd8d0;border-radius:.5rem;min-width:0}
+.metric-chart-money {--metric-value-width:10rem}
+.metric-chart figcaption {font-weight:700;margin-bottom:.5rem}
+.metric-axis {display:flex;justify-content:space-between;margin:0 calc(var(--metric-value-width) + .5rem) .2rem 0;font-size:.8rem}
+.metric-row {display:grid;grid-template-columns:minmax(0,1fr) var(--metric-value-width);gap:.12rem .5rem;align-items:center;margin:.48rem 0}
+.metric-label {grid-column:1/-1;overflow-wrap:anywhere;font-size:.88rem}
+.metric-track {position:relative;height:1rem;overflow:hidden;border-radius:.22rem;background:#e7eee8}
+.metric-unavailable {border:1px dashed #728078;background:transparent}
+.metric-bar,.metric-zero {position:absolute;top:0;height:100%}
+.metric-zero {width:1px;background:#465750}
+.metric-value {text-align:right;font-size:.86rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+@media(max-width:420px){.metric-chart-money{--metric-value-width:8rem}}

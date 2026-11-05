@@ -1,4 +1,5 @@
 import {renderQualityCharts} from './quality-charts.mjs?v=dbe275a266d0';
+import {metricChart, metricValue} from './metric-chart.mjs?v=ac622f53847f';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
@@ -23,7 +24,7 @@ function selector(parent, labelText, options, render) {
   }
   label.append(select);
   parent.append(label);
-  select.addEventListener('change', () => render(select.value));
+  if (render) select.addEventListener('change', () => render(select.value));
   return select;
 }
 
@@ -127,11 +128,54 @@ function renderPse(parent, cities) {
     scroll.append(table(['Escola', 'INEP', 'I1', 'I2', 'Prioridades sem registro'],
       pse.details.map(([inep, name, i1, i2, missing]) => [name, inep, i1 ? 'Sim' : '—', i2 ? 'Sim' : '—', missing.join(', ') || '—'])));
     schools.append(el('summary', 'Conferir execução por escola'), scroll);
-    detail.append(indicators, el('p', 'Apuração local de ' + pse.window.map(date).join(' a '), 'detail'), schools);
+    detail.append(indicators, metricChart('Execução do PSE em percentual das escolas pactuadas', [
+      {label:'I1 · Com ação elegível', value:pse.i1},
+      {label:'I2 · Com as cinco prioridades', value:pse.i2},
+    ], 'percent'), el('p', 'Apuração local de ' + pse.window.map(date).join(' a '), 'detail'), schools);
   }
-  if (cities.length > 1) selector(parent, 'Município do PSE', cities.map(city => [city.ibge, city.label]), show);
-  parent.append(detail);
+  const filters = el('div', null, 'columns');
+  selector(filters, 'Município do PSE', cities.map(city => [city.ibge, city.label]), show);
+  const period = cities.find(city => city.pse.window)?.pse.window.map(date).join(' a ') ?? cities[0].pse.cycle;
+  selector(filters, 'Período do PSE', [[period, period]]);
+  parent.append(filters, detail);
   show(cities[0].ibge);
+}
+
+function renderVaccination(parent, cities) {
+  if (!cities.length) {
+    parent.append(el('p', 'Referência indisponível nesta publicação.'));
+    return;
+  }
+  const filters = el('div', null, 'columns');
+  const dates = el('div');
+  const detail = el('div');
+  detail.setAttribute('aria-live', 'polite');
+  let selectedYear;
+  function showCity(ibge) {
+    const {rows, cutoff} = cities.find(city => city.ibge === ibge);
+    const years = [...new Set(rows.map(row => String(row.ano)))].sort().reverse();
+    function showYear(year) {
+      selectedYear = year;
+      const visible = rows.filter(row => String(row.ano) === year);
+      const note = year === cutoff?.slice(0, 4)
+        ? 'Ano parcial, com corte em ' + date(cutoff) + '.'
+        : 'Cobertura anual conforme a publicação.';
+      const values = visible.map(row => ({label:row.imunobiologico, value:row.cobertura}));
+      const exact = el('details');
+      exact.append(el('summary', 'Ver coberturas exatas'),
+        table(['Imunobiológico', 'Cobertura'], values.map(row => [row.label, metricValue(row.value, 'percent')])));
+      detail.replaceChildren(el('p', note + ' Percentuais acima de 100% seguem a fonte.', 'detail'),
+        metricChart('Cobertura vacinal por imunobiológico', values, 'percent'), exact);
+    }
+    dates.replaceChildren();
+    const year = selector(dates, 'Ano da vacinação', years.map(value => [value, value]), showYear);
+    year.value = years.includes(selectedYear) ? selectedYear : years[0];
+    showYear(year.value);
+  }
+  selector(filters, 'Município da vacinação', cities.map(city => [city.ibge, city.label]), showCity);
+  filters.append(dates);
+  parent.append(filters, detail);
+  showCity(cities[0].ibge);
 }
 
 function renderSnapshot({version, updated, ibge, municipality, series, sources, deliveries, comparison, pseRegional}) {
@@ -190,11 +234,26 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     block.append(table(['Tipo de equipe', 'Equipes'], types.map(([label, count]) => [label, display(count)])));
     return block;
   });
-  editions('fns', 'Financiamento federal', 'Fundo Nacional de Saúde', 'Edição do FNS', ({data, cutoff}) => {
-    const block = metric(reais(data.aps), 'Repasses líquidos do grupo Atenção Primária');
-    block.append(metric(reais(data.total), 'Total líquido de todos os grupos · Acumulado até ' + date(cutoff)));
+  let financeCity;
+  editions('fns', 'Financiamento federal', 'Fundo Nacional de Saúde', 'Edição do FNS', ({data: cities, cutoff}) => {
+    const block = el('div');
+    const detail = el('div');
+    detail.setAttribute('aria-live', 'polite');
+    function showCity(ibge) {
+      financeCity = ibge;
+      const {data} = cities.find(city => city.ibge === ibge);
+      const rows = [{label:'Atenção Primária', value:data.aps_liquido_centavos},
+        {label:'Total de todos os grupos', value:data.total_liquido_centavos}];
+      detail.replaceChildren(el('p', 'Acumulado até ' + date(cutoff) + '. O total já inclui a Atenção Primária.', 'detail'),
+        metricChart('Repasses líquidos da edição em reais', rows, 'money'),
+        table(['Grupo', 'Líquido'], rows.map(row => [row.label, metricValue(row.value, 'money')])));
+    }
+    const select = selector(block, 'Município do financiamento', cities.map(city => [city.ibge, city.label]), showCity);
+    select.value = cities.some(city => city.ibge === financeCity) ? financeCity : cities[0].ibge;
+    block.append(detail);
+    showCity(select.value);
     return block;
-  });
+  }, true);
 
   const school = card('Programa Saúde na Escola', [
     ['Portaria de adesão', sources.pse], ['Escolas no e-Gestor', sources.pse_escolas],
@@ -218,24 +277,7 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
       data.map(([indicator, category, value]) => [[indicator, category].join(' · '), display(value)])));
 
   const vaccine = card('Cobertura vacinal', [['Painel CONASEMS · RNDS', sources.vacinacao]], true);
-  const edition = series.vacinacao[0];
-  if (!edition) {
-    vaccine.append(el('p', 'Referência indisponível nesta publicação.'));
-    return;
-  }
-  const years = [...new Set(edition.data.map(row => row[0]))].sort((a, b) => b - a);
-  const detail = el('div');
-  function showVaccine(year) {
-    const rows = edition.data.filter(row => row[0] === Number(year));
-    const note = year === edition.cutoff.slice(0, 4)
-      ? 'Ano parcial, com corte em ' + date(edition.cutoff) + '.'
-      : 'Cobertura anual conforme a publicação.';
-    detail.replaceChildren(el('p', note, 'detail'),
-      table(['Imunobiológico', 'Cobertura'], rows.map(([, label, value]) => [label, display(value, '%')])));
-  }
-  selector(vaccine, 'Ano da vacinação', years.map(year => [String(year), String(year)]), showVaccine);
-  vaccine.append(detail);
-  showVaccine(String(years[0]));
+  renderVaccination(vaccine, series.vacinacao[0]?.data ?? []);
 }
 
 const login = document.getElementById('login');
