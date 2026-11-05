@@ -1,5 +1,5 @@
 import {renderQualityCharts} from './quality-charts.mjs?v=dbe275a266d0';
-import {metricChart, metricValue} from './metric-chart.mjs?v=ac622f53847f';
+import {metricChart, metricValue, renderEpidemiology} from './metric-chart.mjs?v=6aa51587e0a2';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
@@ -275,6 +275,12 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
   editions('siaps', 'Produção assistencial da APS', 'Siaps · Práticas assistenciais', 'Competência da produção', ({data}) =>
     table(['Indicador e categoria', 'Valor publicado'],
       data.map(([indicator, category, value]) => [[indicator, category].join(' · '), display(value)])));
+
+  editions('epidemiologia', 'Epidemiologia · SINAN', 'DATASUS · Arquivos do SINAN', 'Revisão do lote', ({data}) => {
+    const body = el('div');
+    renderEpidemiology(body, data);
+    return body;
+  }, true);
 
   const vaccine = card('Cobertura vacinal', [['Painel CONASEMS · RNDS', sources.vacinacao]], true);
   renderVaccination(vaccine, series.vacinacao[0]?.data ?? []);
