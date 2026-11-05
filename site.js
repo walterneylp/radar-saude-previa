@@ -1,5 +1,5 @@
 import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=a6a152df1b2a';
-import {downloadCsv, metricChart, metricValue, renderApsPayments, renderEpidemiology, renderMunicipalNetwork, renderProduction, renderSisabProduction} from './metric-chart.mjs?v=3d388f2422d9';
+import {downloadCsv, metricChart, metricValue, renderApsPayments, renderApsQualityReference, renderEpidemiology, renderMunicipalNetwork, renderProduction, renderSisabProduction} from './metric-chart.mjs?v=731c2719ffcf';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
@@ -207,7 +207,8 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
       link.href = url;
       source.append(link);
     }
-    article.append(el('h3', title), body, source);
+    article.append(el('h3', title), body);
+    if (links.length) article.append(source);
     document.querySelector('#' + module + ' [data-cards]').append(article);
     return body;
   }
@@ -294,6 +295,8 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     renderApsPayments(body, data);
     return body;
   }, true);
+
+  renderApsQualityReference(card('financiamento', 'Referência do componente de qualidade', [], true));
 
   const school = card('pse', 'Programa Saúde na Escola', [
     ['Portaria de adesão', sources.pse], ['Escolas no e-Gestor', sources.pse_escolas],

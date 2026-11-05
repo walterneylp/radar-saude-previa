@@ -271,6 +271,110 @@ function appendTeamPayment(target, kind, team, financial) {
   target.append(plans);
 }
 
+const QUALITY_ORDINANCE = 'https://bvsms.saude.gov.br/bvs/saudelegis/gm/2025/prt9591_26_12_2025.html';
+const QUALITY_TRANSITION = 'https://bvsms.saude.gov.br/bvs/saudelegis/gm/2026/prt10994_14_05_2026.html';
+const APS_FUNDING_NOTE = 'https://conasems-ava-prod.s3.sa-east-1.amazonaws.com/institucional/orientacoes/nota-tecnica-conjunta-saps-conasems-conass-novo-financiamento-aps-versao-final-saps-03072024-1720464797.pdf';
+
+// Anexo XCIX-B, em reais por equipe/mês, na ordem Ótimo, Bom, Suficiente e Regular.
+const qualityRates = {
+  esf: {label: 'eSF · Saúde da Família', rates: [
+    ['40 h', 8000, 6000, 4000, 2000],
+  ]},
+  esfr: {label: 'eSFR · Saúde da Família Ribeirinha', rates: [
+    ['40 h', 8000, 6000, 4000, 2000],
+  ]},
+  eap: {label: 'eAP · Atenção Primária', rates: [
+    ['30 h', 4000, 3000, 2000, 1000],
+    ['20 h', 3000, 2250, 1500, 750],
+  ]},
+  esb40: {label: 'eSB · Saúde Bucal 40 h', rates: [
+    ['Modalidade I · Comum', 2500, 2000, 1500, 1000],
+    ['Modalidade II · Comum', 3300, 2500, 1700, 1200],
+    ['Modalidade I · Quilombola ou assentado', 3750, 3000, 2250, 1500],
+    ['Modalidade II · Quilombola ou assentado', 4950, 3750, 2550, 1800],
+  ]},
+  esb_diferenciada: {label: 'eSB · Saúde Bucal 20 e 30 h', rates: [
+    ['Modalidade I · 30 h', 1875, 1500, 1125, 750],
+    ['Modalidade I · 20 h', 1250, 1000, 750, 500],
+  ]},
+  emulti: {label: 'eMulti · Multiprofissional', rates: [
+    ['Ampliada', 9000, 6750, 4500, 2250],
+    ['Complementar', 6000, 4500, 3000, 1500],
+    ['Estratégica', 3000, 2250, 1500, 750],
+  ]},
+  ecr: {label: 'eCR · Consultório na Rua', rates: [
+    ['Modalidade III', 8000, 6000, 4000, 2000],
+    ['Modalidade II', 7000, 5250, 3500, 1750],
+    ['Modalidade I', 6000, 4500, 3000, 1500],
+  ]},
+  eapp: {label: 'eAPP · Atenção Primária Prisional', rates: [
+    ['Ampliada · 30 h', 8000, 6000, 4000, 2000],
+    ['Ampliada · 20 h', 6000, 4500, 3000, 1500],
+    ['Essencial · 30 h', 7000, 5250, 3500, 1750],
+    ['Essencial · 20 h', 5000, 3750, 2500, 1250],
+  ]},
+};
+const transitionTeams = new Set(['esf', 'eap', 'esb40', 'emulti']);
+
+export function renderApsQualityReference(target) {
+  const filters = el('div', null, 'quality-controls');
+  const result = el('div');
+  result.setAttribute('aria-live', 'polite');
+  const team = selectField(filters, 'Tipo de equipe da referência de qualidade', Object.entries(qualityRates)
+    .map(([key, item]) => [key, item.label]), refresh);
+  const regime = selectField(filters, 'Regra do componente de qualidade', [
+    ['annex', 'Tabela do Anexo XCIX-B'],
+    ['2026-1', '1º quadrimestre de 2026'],
+    ['2026-2-3', '2º e 3º quadrimestres de 2026'],
+  ], refresh);
+
+  const links = el('p', null, 'quality-note');
+  const legalSources = [
+    ['Portaria GM/MS 9.591/2025 · Anexo XCIX-B', QUALITY_ORDINANCE],
+    ['Portaria GM/MS 10.994/2026 · Transição', QUALITY_TRANSITION],
+    ['Nota técnica tripartite · Aplicação dos recursos', APS_FUNDING_NOTE],
+  ];
+  for (const [index, [title, url]] of legalSources.entries()) {
+    if (index) links.append(' · ');
+    const link = el('a', title);
+    link.href = url;
+    links.append(link);
+  }
+  const guidance = el('details');
+  guidance.append(el('summary', 'Aplicação dos recursos e prestação de contas'),
+    el('p', 'A nota conjunta SAPS, Conasems e Conass orienta a aplicação dos recursos em ações e serviços da APS, conforme a finalidade e o bloco do repasse, o Plano Municipal de Saúde e a Programação Anual de Saúde.', 'quality-note'),
+    el('p', 'A prestação de contas é feita no Relatório Anual de Gestão (RAG). Os valores desta tabela são referências mensais de cofinanciamento por equipe.', 'quality-note'));
+  target.replaceChildren(
+    el('p', 'Valores mensais por equipe e classificação. O demonstrativo do e-Gestor e as transferências do FNS ficam nos painéis de pagamento e repasse.', 'quality-note'),
+    filters, result, links, guidance,
+  );
+  refresh();
+
+  function refresh() {
+    const transitions = transitionTeams.has(team.value);
+    for (const option of regime.options) option.disabled = option.value !== 'annex' && !transitions;
+    if (!transitions) regime.value = 'annex';
+    const rule = regime.value;
+    const rows = qualityRates[team.value].rates.map(([label, excellent, good, sufficient, regular]) => {
+      const values = rule === 'annex' ? [excellent, good, sufficient, regular] :
+        [rule === '2026-1' ? good : excellent, good, good, good];
+      return [label, ...values.map(value => metricValue(value * 100, 'money'))];
+    });
+    const notes = {
+      annex: 'A tabela tem efeitos financeiros a partir da primeira parcela de 2026. A aplicação segue as regras vigentes para cada equipe.',
+      '2026-1': 'Para as equipes abrangidas pela transição, o primeiro quadrimestre de 2026 usa o valor de Bom em todas as classificações.',
+      '2026-2-3': 'Na transição a partir do segundo quadrimestre de 2026, Ótimo usa o valor próprio. Bom, Suficiente e Regular usam o valor de Bom.',
+    };
+    const scope = transitions
+      ? ' A transição aqui exibida se refere ao componente de qualidade. A partir do primeiro quadrimestre de 2027, a norma prevê transferência conforme a classificação, observadas as regras para novas homologações.'
+      : ' As opções de transição deste quadro são específicas para eSF, eAP, eSB 40 h e eMulti.';
+    result.replaceChildren(
+      reportTable(['Modalidade', 'Ótimo', 'Bom', 'Suficiente', 'Regular'], rows, 'Valores mensais do componente de qualidade'),
+      el('p', notes[rule] + scope, 'quality-note'),
+    );
+  }
+}
+
 export function renderProduction(target, {municipios, modalidades, dados}, {source, cutoff} = {}) {
   if (!dados.length) return;
   const filters = el('div', null, 'quality-controls');
