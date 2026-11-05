@@ -16,6 +16,17 @@ export function metricValue(value, unit) {
   return percentage.format(value) + (unit === 'percent' ? '%' : '');
 }
 
+export function downloadCsv(filename, rows) {
+  const quote = value => '"' + String(value ?? '').replaceAll('"', '""') + '"';
+  const url = URL.createObjectURL(new Blob(['\ufeff', rows.map(row => row.map(quote).join(';')).join('\r\n')],
+    {type: 'text/csv;charset=utf-8'}));
+  const link = el('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 export function metricChart(title, rows, unit) {
   const figure = el('figure', null, 'metric-chart metric-chart-' + unit);
   figure.append(el('figcaption', title));
@@ -74,7 +85,7 @@ function selectField(parent, label, options, refresh) {
   return select;
 }
 
-export function renderProduction(target, {municipios, modalidades, dados}) {
+export function renderProduction(target, {municipios, modalidades, dados}, {source, cutoff} = {}) {
   if (!dados.length) return;
   const filters = el('div', null, 'quality-controls');
   const results = el('div');
@@ -104,16 +115,23 @@ export function renderProduction(target, {municipios, modalidades, dados}) {
     const index = new Map(dados.filter(row => row.modalidade === metric.value)
       .map(row => [row.ibge + '/' + row.competencia, row.valor]));
     const reference = periodLabel(period.value);
-    const compare = cities.map(([key, label]) => ({label, value: index.get(key + '/' + period.value)}));
+    const compare = cities.map(([ibge, label]) => ({ibge, label, value: index.get(ibge + '/' + period.value)}));
     const year = period.value.slice(0, 4);
     const timeline = periods.filter(value => value.startsWith(year) && value <= period.value).reverse()
-      .map(value => ({label: periodLabel(value), value: index.get(city.value + '/' + value)}));
+      .map(month => ({month, label: periodLabel(month), value: index.get(city.value + '/' + month)}));
     const color = palette[Object.keys(modalidades).indexOf(metric.value)];
     const figures = el('div', null, 'quality-figures');
     figures.append(metricChart(modalidades[metric.value] + ' por município · ' + reference, compare, 'count'),
       metricChart(municipios[city.value] + ' · Evolução até ' + reference,
         timeline.map(row => ({...row, color})), 'count'));
-    results.replaceChildren(figures);
+    const download = el('button', 'Baixar produção em CSV', 'chart-download');
+    download.type = 'button';
+    download.addEventListener('click', () => downloadCsv(
+      'radar-producao-' + metric.value + '-' + city.value + '-' + period.value + '.csv',
+      [['Recorte', 'IBGE', 'Município', 'Modalidade', 'Competência', 'Quantidade', 'Consulta em', 'Fonte'],
+        ...compare.map(item => ['Comparação municipal', item.ibge, item.label, modalidades[metric.value], period.value, item.value, cutoff, source]),
+        ...timeline.map(item => ['Série mensal', city.value, municipios[city.value], modalidades[metric.value], item.month, item.value, cutoff, source])]));
+    results.replaceChildren(figures, download);
   }
 }
 
@@ -156,12 +174,13 @@ function weeklyCurve(label, values, lastWeek, color) {
   return figure;
 }
 
-function weeklySection(chosenYear, entries, chosen, colors) {
+function weeklySection(chosenYear, entries, chosen, colors, city, cityLabel, source) {
   const section = el('section', null, 'epidemiology-weekly');
   section.append(el('h3', 'Notificações por semana epidemiológica · ' + chosenYear));
-  const series = entries.map(([key, info]) => ({
-    label: info.label, values: chosen.get(key)?.semanas ?? [], color: colors.get(key),
-  }));
+  const series = entries.map(([key, info]) => {
+    const record = chosen.get(key);
+    return {label: info.label, record, values: record?.semanas ?? [], color: colors.get(key)};
+  });
   const lastWeek = Math.max(...series.map(item => item.values.length));
   if (!lastWeek) {
     section.append(el('p', 'Séries semanais indisponíveis para este município e ano.'));
@@ -192,11 +211,19 @@ function weeklySection(chosenYear, entries, chosen, colors) {
   }
   box.append(table);
   detail.append(box);
-  section.append(charts, detail);
+  const download = el('button', 'Baixar arboviroses semanais em CSV', 'chart-download');
+  download.type = 'button';
+  download.addEventListener('click', () => downloadCsv('radar-arboviroses-semanal-' + city + '-' + chosenYear + '.csv',
+    [['IBGE', 'Município', 'Ano epidemiológico', 'Semana epidemiológica', 'Agravo', 'Notificações',
+      'Cobertura da semana', 'Situação do arquivo', 'Arquivo SINAN', 'Atualização do arquivo', 'Fonte'],
+    ...Array.from({length: lastWeek}, (_, index) => series.map(item => [city, cityLabel, chosenYear, index + 1,
+      item.label, item.values[index], index < item.values.length ? 'Disponível' : 'Indisponível',
+      item.record?.situacao, item.record?.arquivo, item.record?.arquivo_atualizado, source])).flat()]));
+  section.append(charts, detail, download);
   return section;
 }
 
-export function renderEpidemiology(target, {municipios, agravos, dados}) {
+export function renderEpidemiology(target, {municipios, agravos, dados}, source) {
   if (!dados.length) return;
   const filters = el('div', null, 'quality-controls');
   const results = el('div');
@@ -253,7 +280,7 @@ export function renderEpidemiology(target, {municipios, agravos, dados}) {
           value: record?.notificacoes, color};
       }), 'count'));
     results.replaceChildren(figures);
-    if (group.value === 'arboviroses') results.append(weeklySection(chosenYear, entries, chosen, colors));
+    if (group.value === 'arboviroses') results.append(weeklySection(chosenYear, entries, chosen, colors, city.value, municipios[city.value], source));
     results.append(yearTable(chosen, measure));
   }
 

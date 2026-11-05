@@ -1,5 +1,5 @@
-import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=4b5337a595dd';
-import {metricChart, metricValue, renderEpidemiology, renderProduction} from './metric-chart.mjs?v=293acbf373e5';
+import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=82782ed07bce';
+import {downloadCsv, metricChart, metricValue, renderEpidemiology, renderProduction} from './metric-chart.mjs?v=1a46897426ad';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
@@ -277,7 +277,7 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     const charts = el('div');
     if (cutoff) body.append(el('p', 'Consultado em ' + date(cutoff), 'detail'));
     body.append(charts);
-    renderVinculo(charts, data);
+    renderVinculo(charts, data, {downloadCsv, cutoff, source: sources.siaps_vinculo});
     return body;
   }, true);
 
@@ -290,13 +290,13 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     const charts = el('div');
     if (cutoff) body.append(el('p', 'Consultado em ' + date(cutoff), 'detail'));
     body.append(charts);
-    renderProduction(charts, data);
+    renderProduction(charts, data, {cutoff, source: sources.siaps_producao});
     return body;
   }, true);
 
   editions('epidemiologia', 'Epidemiologia · SINAN', 'DATASUS · Arquivos do SINAN', 'Revisão do lote', ({data}) => {
     const body = el('div');
-    renderEpidemiology(body, data);
+    renderEpidemiology(body, data, sources.epidemiologia);
     return body;
   }, true);
 

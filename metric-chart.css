@@ -16,5 +16,7 @@
 .weekly-gridline {stroke:#b8c8bd;stroke-width:1}
 .weekly-line {fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
 .epidemiology-weekly summary {cursor:pointer;font-weight:600;margin:.5rem 0}
+.chart-download {margin:.5rem 0;font:inherit;font-weight:600;color:#125846;background:#f0f7f2;border:1px solid #719285;border-radius:.35rem;padding:.45rem .7rem;cursor:pointer}
+.chart-download:hover {background:#e1efe6}
 @media(max-width:860px){.weekly-charts{grid-template-columns:minmax(0,1fr)}.weekly-curve svg{max-width:32rem}}
 @media(max-width:420px){.metric-chart-money{--metric-value-width:8rem}}

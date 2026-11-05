@@ -159,7 +159,7 @@ export function renderQualityCharts(target, municipalities, fixedGroup, selectio
   }
 }
 
-export function renderVinculo(target, {municipios, dimensoes, dados}) {
+export function renderVinculo(target, {municipios, dimensoes, dados}, {downloadCsv, cutoff, source}) {
   if (!dados.length) return;
   const controls = element('div', null, 'quality-controls');
   const content = element('div', null, 'quality-figures');
@@ -176,9 +176,11 @@ export function renderVinculo(target, {municipios, dimensoes, dados}) {
   options(team, teamTypes.map(value => [value, value]), 'eSF');
   const dimension = control(controls, 'Dimensão para comparação', refresh);
   options(dimension, sections, 'final');
+  const download = element('button', 'Baixar vínculo territorial em CSV', 'chart-download');
+  download.type = 'button';
   target.replaceChildren(controls, conceptLegend(), content, element('p',
     'As barras mostram quantas equipes receberam cada conceito no Siaps. Cadastro, acompanhamento e resultado final são distribuições distintas. O traço indica recorte sem resultado publicado.',
-    'quality-note'));
+    'quality-note'), download);
   refresh();
 
   function refresh() {
@@ -189,5 +191,12 @@ export function renderVinculo(target, {municipios, dimensoes, dados}) {
     const compared = cities.map(([key, label]) => ({label, counts: counts(key, dimension.value)}));
     content.replaceChildren(chart('Equipes em ' + municipios[city.value] + ' · ' + team.value, local),
       chart('Comparação municipal · ' + dimensoes[dimension.value] + ' · ' + team.value, compared));
+    const csvRow = (scope, ibge, key, values) => [scope, ibge, municipios[ibge], quarter.value, team.value,
+      dimensoes[key], ...concepts.map(concept => values.get(concept)), cutoff, source];
+    download.onclick = () => downloadCsv('radar-vinculo-' + city.value + '-' + quarter.value + '-' + team.value + '-' + dimension.value + '.csv',
+      [['Recorte', 'IBGE', 'Município', 'Fechamento do quadrimestre', 'Tipo de equipe', 'Dimensão',
+        ...concepts, 'Consulta em', 'Fonte'],
+      ...sections.map(([key], index) => csvRow('Detalhe municipal', city.value, key, local[index].counts)),
+      ...cities.map(([ibge], index) => csvRow('Comparação municipal', ibge, dimension.value, compared[index].counts))]);
   }
 }
