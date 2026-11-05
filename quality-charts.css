@@ -24,3 +24,8 @@
 .quality-figure summary {cursor:pointer}
 .quality-note {font-size:.86rem;margin:.65rem 0 0}
 @media(min-width:930px){.quality-figures {grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){
+  .quality-counts table {table-layout:fixed;min-width:0;font-size:.75rem}
+  .quality-counts th,.quality-counts td {padding:.45rem .2rem;overflow-wrap:anywhere;white-space:normal}
+  .quality-counts tr>:first-child {width:34%}
+}

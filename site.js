@@ -1,5 +1,5 @@
-import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=82782ed07bce';
-import {downloadCsv, metricChart, metricValue, renderEpidemiology, renderProduction} from './metric-chart.mjs?v=1a46897426ad';
+import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=a6a152df1b2a';
+import {downloadCsv, metricChart, metricValue, renderApsPayments, renderEpidemiology, renderMunicipalNetwork, renderProduction} from './metric-chart.mjs?v=9647e2497834';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
@@ -225,9 +225,16 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
 
   editions('ibge', 'População residente', 'IBGE · SIDRA 6579', 'Referência da população', ({data, cutoff}) =>
     metric(display(data.population) + ' habitantes', 'Estimativa em ' + date(cutoff)));
-  editions('cnes', 'Estabelecimentos de saúde', 'CNES · API do Ministério da Saúde', 'Mês da consulta', ({data, period}) =>
+  editions('cnes', 'Cadastro geral de estabelecimentos', 'CNES · API do Ministério da Saúde', 'Mês da consulta', ({data, period}) =>
     metric(display(data.establishments) + ' estabelecimentos',
       display(data.ambulatory) + ' com atendimento ambulatorial SUS indicado no cadastro · Consulta em ' + date(period)));
+  editions('rede_municipal', 'Rede pública municipal por tipo', 'CNES · DATASUS', 'Competência da rede pública', ({data, period}) => {
+    const body = el('div');
+    const chart = el('div');
+    body.append(el('p', 'Competência CNES · ' + date(period), 'detail'), chart);
+    renderMunicipalNetwork(chart, data);
+    return body;
+  }, true);
   editions('equipes_cnes', 'Equipes cadastradas', 'DATASUS · Arquivo EP do CNES', 'Competência das equipes', ({data}) => {
     const block = metric(display(data.total) + ' equipes', 'Registros municipais do arquivo EP');
     const types = Object.entries(data.types).sort((a, b) => b[1] - a[1]);
@@ -263,9 +270,23 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     }
     const select = selector(block, 'Município do financiamento', cities.map(city => [city.ibge, city.label]), showCity);
     select.value = cities.some(city => city.ibge === financeCity) ? financeCity : cities[0].ibge;
-    block.append(detail);
+    const comparison = el('details');
+    const scroll = el('div', null, 'quality-table');
+    scroll.tabIndex = 0;
+    scroll.setAttribute('role', 'region');
+    scroll.setAttribute('aria-label', 'Repasses dos municípios na mesma edição');
+    scroll.append(table(['Município', 'Atenção Primária', 'Total de todos os grupos'], cities.map(city => [
+      city.label, reais(city.data.aps_liquido_centavos), reais(city.data.total_liquido_centavos),
+    ])));
+    comparison.append(el('summary', 'Comparar repasses entre municípios'), scroll);
+    block.append(detail, comparison);
     showCity(select.value);
     return block;
+  }, true);
+  editions('pagamento_aps', 'Pagamento e credenciamento da APS', 'e-Gestor APS · Relatórios públicos', 'Revisão do pagamento APS', ({data}) => {
+    const body = el('div');
+    renderApsPayments(body, data);
+    return body;
   }, true);
 
   const school = card('Programa Saúde na Escola', [

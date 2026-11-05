@@ -85,6 +85,113 @@ function selectField(parent, label, options, refresh) {
   return select;
 }
 
+function reportTable(headers, rows, label) {
+  const wrapper = el('div', null, 'quality-table');
+  wrapper.setAttribute('role', 'region');
+  wrapper.setAttribute('aria-label', label);
+  wrapper.tabIndex = 0;
+  const table = el('table');
+  const head = table.createTHead().insertRow();
+  for (const title of headers) {
+    const cell = el('th', title);
+    cell.scope = 'col';
+    head.append(cell);
+  }
+  const body = table.createTBody();
+  for (const [title, ...values] of rows) {
+    const row = body.insertRow();
+    const cell = el('th', title);
+    cell.scope = 'row';
+    row.append(cell, ...values.map(value => el('td', value)));
+  }
+  wrapper.append(table);
+  return wrapper;
+}
+
+export function renderMunicipalNetwork(target, {municipios, dados}) {
+  if (!dados.length) return;
+  const filters = el('div', null, 'quality-controls');
+  const detail = el('div');
+  detail.setAttribute('aria-live', 'polite');
+  const city = selectField(filters, 'Município da rede pública', dados.map(row => [row.ibge, municipios[row.ibge]]), refresh);
+  target.replaceChildren(filters, el('p', 'Esfera jurídica · Administração Pública Municipal', 'quality-note'), detail);
+  refresh();
+
+  function refresh() {
+    const {total, tipos} = dados.find(row => row.ibge === city.value);
+    const rows = [...tipos].sort((a, b) => b.quantidade - a.quantidade || a.tipo.localeCompare(b.tipo, 'pt-BR'));
+    const link = el('a', 'Consultar filtros no TabNet');
+    const state = city.value.startsWith('27') ? 'al' : 'pe';
+    link.href = 'https://tabnet.datasus.gov.br/cgi/deftohtm.exe?cnes/cnv/estab' + state + '.def';
+    detail.replaceChildren(el('p', metricValue(total, 'count') + ' estabelecimentos no recorte', 'value'),
+      metricChart('Estabelecimentos por tipo', rows.map(row => ({label: row.tipo, value: row.quantidade})), 'count'),
+      reportTable(['Tipo de estabelecimento', 'Quantidade'],
+        [['Total', metricValue(total, 'count')], ...rows.map(row => [row.tipo, metricValue(row.quantidade, 'count')])],
+        'Totais do CNES por tipo'), el('p'));
+    detail.lastElementChild.append(link);
+  }
+}
+
+export function renderApsPayments(target, {municipios, dados, componentes, validacoes}) {
+  if (!dados.length) return;
+  const filters = el('div', null, 'quality-controls');
+  const detail = el('div');
+  detail.setAttribute('aria-live', 'polite');
+  const months = [...new Set(dados.map(row => row.parcela))].sort().reverse();
+  const date = value => value.split('-').reverse().join('/');
+  const city = selectField(filters, 'Município do pagamento APS', Object.entries(municipios), refresh);
+  if (municipios['2700300']) city.value = '2700300';
+  const payment = selectField(filters, 'Parcela financeira', months.map(month => [month, date(month)]), refresh);
+  const component = selectField(filters, 'Componente APS', Object.entries(componentes), refresh);
+  const sources = el('ul', null, 'quality-note');
+  for (const [label, url] of [
+    ['Equipes e estabelecimentos homologados', 'https://relatorioaps.saude.gov.br/gerenciaaps/ines-cnes-homologados'],
+    ['Equipes e serviços com ausência de envio de produção', 'https://relatorioaps.saude.gov.br/gerenciaaps/ausencia-envio-producao'],
+    ['Solicitações de credenciamento e custeio', 'https://gaps.saude.gov.br/gestaofederal/publico/relatorio-solicitacoes'],
+  ]) {
+    const item = el('li');
+    const link = el('a', label);
+    link.href = url;
+    item.append(link);
+    sources.append(item);
+  }
+  target.replaceChildren(filters, el('p', 'O e-Gestor apresenta o valor a que o município faz jus na parcela. As transferências efetivadas são consultadas no painel do FNS.', 'quality-note'), detail,
+    el('h4', 'Consultas relacionadas no e-Gestor'), sources);
+  refresh();
+
+  function refresh() {
+    const row = dados.find(item => item.ibge === city.value && item.parcela === payment.value);
+    if (!row) {
+      detail.replaceChildren(el('p', 'Parcela indisponível para este município.'));
+      return;
+    }
+    const stats = row.componentes[component.value] ?? {};
+    const rows = [['Teto publicado', stats.teto], ['Credenciados', stats.credenciados],
+      ['Homologados', stats.homologados], ['Pagos', stats.pagos]].map(([label, value]) => ({label, value}));
+    const figures = el('div', null, 'quality-figures');
+    const financial = row.planos.map(plan => ({label: plan.plano, value: plan.centavos}));
+    figures.append(metricChart(componentes[component.value], rows, 'count'),
+      metricChart('Custeio da parcela por plano orçamentário', financial, 'money'));
+    detail.replaceChildren(el('p', 'Competência CNES usada pelo e-Gestor · ' + date(row.competencia_cnes), 'quality-note'), figures);
+    if (stats.teto != null && stats.credenciados != null) {
+      const difference = stats.teto - stats.credenciados;
+      const summary = difference >= 0 ? 'Margem até o teto publicado' : 'Credenciados acima do teto';
+      detail.append(el('p', summary + ' · ' + metricValue(Math.abs(difference), 'count') +
+        '. A aprovação de novos credenciamentos segue os critérios do Ministério da Saúde.', 'quality-note'));
+    }
+    if (component.value === 'acs') {
+      detail.append(el('h4', 'Validação de ACS'));
+      if (row.validacao_acs) {
+        detail.append(reportTable(['Situação na fonte', 'Registros'], Object.entries(validacoes)
+          .map(([key, title]) => [title, metricValue(row.validacao_acs[key], 'count')]), 'Validações agregadas de ACS'),
+          el('p', 'Um registro pode aparecer em mais de uma situação. Equipe inativa descreve o vínculo indicado pelo e-Gestor.', 'quality-note'));
+      } else {
+        detail.append(el('p', 'Detalhamento de ACS indisponível para esta parcela.'));
+      }
+    }
+  }
+}
+
 export function renderProduction(target, {municipios, modalidades, dados}, {source, cutoff} = {}) {
   if (!dados.length) return;
   const filters = el('div', null, 'quality-controls');

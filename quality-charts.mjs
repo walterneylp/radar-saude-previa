@@ -48,7 +48,7 @@ function countsTable(rows) {
   const extra = new Set(rows.flatMap(row => [...row.counts.keys()]).filter(concept => !concepts.includes(concept)));
   const headings = [...concepts, ...extra];
   const details = element('details');
-  const scroller = element('div', null, 'quality-table');
+  const scroller = element('div', null, 'quality-table quality-counts');
   scroller.tabIndex = 0;
   scroller.setAttribute('role', 'region');
   scroller.setAttribute('aria-label', 'Contagens publicadas por conceito');
