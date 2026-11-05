@@ -1,5 +1,5 @@
 import {renderQualityCharts} from './quality-charts.mjs?v=dbe275a266d0';
-import {metricChart, metricValue, renderEpidemiology} from './metric-chart.mjs?v=989ec371b6cf';
+import {metricChart, metricValue, renderEpidemiology, renderProduction} from './metric-chart.mjs?v=293acbf373e5';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
@@ -275,6 +275,15 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
   editions('siaps', 'Produção assistencial da APS', 'Siaps · Práticas assistenciais', 'Competência da produção', ({data}) =>
     table(['Indicador e categoria', 'Valor publicado'],
       data.map(([indicator, category, value]) => [[indicator, category].join(' · '), display(value)])));
+
+  if (series.siaps_producao?.length) editions('siaps_producao', 'Produção mensal da APS · Siaps', 'Siaps · Práticas assistenciais', 'Revisão da produção municipal', ({data, cutoff}) => {
+    const body = el('div');
+    const charts = el('div');
+    if (cutoff) body.append(el('p', 'Consultado em ' + date(cutoff), 'detail'));
+    body.append(charts);
+    renderProduction(charts, data);
+    return body;
+  }, true);
 
   editions('epidemiologia', 'Epidemiologia · SINAN', 'DATASUS · Arquivos do SINAN', 'Revisão do lote', ({data}) => {
     const body = el('div');

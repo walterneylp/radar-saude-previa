@@ -74,6 +74,49 @@ function selectField(parent, label, options, refresh) {
   return select;
 }
 
+export function renderProduction(target, {municipios, modalidades, dados}) {
+  if (!dados.length) return;
+  const filters = el('div', null, 'quality-controls');
+  const results = el('div');
+  results.setAttribute('aria-live', 'polite');
+  const active = new Set(dados.map(row => row.modalidade));
+  const cities = Object.entries(municipios);
+  const periodLabel = value => value.split('-').reverse().join('/');
+  const city = selectField(filters, 'Município da produção', cities, refresh);
+  const period = selectField(filters, 'Competência da produção municipal', [], refresh);
+  const metric = selectField(filters, 'Modalidade da produção', Object.entries(modalidades).filter(([key]) => active.has(key)), selectMetric);
+  let periods;
+  if (municipios['2700300']) city.value = '2700300';
+  target.replaceChildren(filters,
+    el('p', 'Volumes mensais publicados pelo Siaps. Cada modalidade é exibida separadamente. O traço indica valor indisponível.', 'quality-note'),
+    results);
+  selectMetric();
+
+  function selectMetric() {
+    const previousPeriod = period.value;
+    periods = [...new Set(dados.filter(row => row.modalidade === metric.value).map(row => row.competencia))].sort().reverse();
+    replaceOptions(period, periods.map(value => [value, periodLabel(value)]));
+    period.value = periods.includes(previousPeriod) ? previousPeriod : periods[0];
+    refresh();
+  }
+
+  function refresh() {
+    const index = new Map(dados.filter(row => row.modalidade === metric.value)
+      .map(row => [row.ibge + '/' + row.competencia, row.valor]));
+    const reference = periodLabel(period.value);
+    const compare = cities.map(([key, label]) => ({label, value: index.get(key + '/' + period.value)}));
+    const year = period.value.slice(0, 4);
+    const timeline = periods.filter(value => value.startsWith(year) && value <= period.value).reverse()
+      .map(value => ({label: periodLabel(value), value: index.get(city.value + '/' + value)}));
+    const color = palette[Object.keys(modalidades).indexOf(metric.value)];
+    const figures = el('div', null, 'quality-figures');
+    figures.append(metricChart(modalidades[metric.value] + ' por município · ' + reference, compare, 'count'),
+      metricChart(municipios[city.value] + ' · Evolução até ' + reference,
+        timeline.map(row => ({...row, color})), 'count'));
+    results.replaceChildren(figures);
+  }
+}
+
 function svgElement(name, attributes = {}, text) {
   const node = document.createElementNS('http://www.w3.org/2000/svg', name);
   for (const [key, value] of Object.entries(attributes)) node.setAttribute(key, value);
