@@ -247,6 +247,19 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
       detail.replaceChildren(el('p', 'Acumulado até ' + date(cutoff) + '. O total já inclui a Atenção Primária.', 'detail'),
         metricChart('Repasses líquidos da edição em reais', rows, 'money'),
         table(['Grupo', 'Líquido'], rows.map(row => [row.label, metricValue(row.value, 'money')])));
+      if (data.grupos?.length) {
+        const exact = el('details');
+        const amounts = el('div', null, 'quality-table');
+        amounts.tabIndex = 0;
+        amounts.setAttribute('role', 'region');
+        amounts.setAttribute('aria-label', 'Valores por bloco e grupo');
+        amounts.append(table(['Bloco', 'Grupo', 'Bruto', 'Líquido'], data.grupos.map(row => [row.bloco, row.grupo,
+          metricValue(row.bruto_centavos, 'money'), metricValue(row.liquido_centavos, 'money')])));
+        exact.append(el('summary', 'Conferir repasses por bloco e grupo'), amounts);
+        detail.append(metricChart('Repasse líquido por bloco e grupo', data.grupos.map(row => ({
+          label: row.bloco + ' · ' + row.grupo, value: row.liquido_centavos,
+        })), 'money'), exact);
+      }
     }
     const select = selector(block, 'Município do financiamento', cities.map(city => [city.ibge, city.label]), showCity);
     select.value = cities.some(city => city.ibge === financeCity) ? financeCity : cities[0].ibge;
