@@ -55,14 +55,19 @@ export function metricChart(title, rows, unit) {
   return figure;
 }
 
-function selectField(parent, label, options, refresh) {
-  const field = el('label', label);
-  const select = el('select');
+function replaceOptions(select, options) {
+  select.replaceChildren();
   for (const [value, name] of options) {
     const option = el('option', name);
     option.value = value;
     select.append(option);
   }
+}
+
+function selectField(parent, label, options, refresh) {
+  const field = el('label', label);
+  const select = el('select');
+  replaceOptions(select, options);
   select.addEventListener('change', refresh);
   field.append(select);
   parent.append(field);
@@ -74,28 +79,50 @@ export function renderEpidemiology(target, {municipios, agravos, dados}) {
   const filters = el('div', null, 'quality-controls');
   const results = el('div');
   results.setAttribute('aria-live', 'polite');
-  const entries = Object.entries(agravos);
-  const years = [...new Set(dados.map(row => row.ano))].sort((a, b) => b - a);
+  const catalog = Object.entries(agravos);
+  const colors = new Map(catalog.map(([key], index) => [key, palette[index % palette.length]]));
+  const available = new Set(dados.map(row => row.agravo));
+  const groups = Object.entries({arboviroses: 'Arboviroses', outros: 'Tuberculose, hanseníase e sífilis adquirida'})
+    .filter(([group]) => catalog.some(([key, info]) => (info.group ?? 'outros') === group && available.has(key)));
+  if (!groups.length) return;
   const city = selectField(filters, 'Município da epidemiologia', Object.entries(municipios), refresh);
-  const year = selectField(filters, 'Ano de referência do SINAN', years.map(value => [value, value]), refresh);
-  const disease = selectField(filters, 'Agravo para a série histórica', entries.map(([key, info]) => [key, info.label]), refresh);
-  const complete = years.find(value => entries.every(([key]) =>
-    dados.some(row => row.ibge === city.value && row.agravo === key && row.ano === value)));
-  if (complete) year.value = String(complete);
-  target.replaceChildren(filters,
-    el('p', 'Contagens por município de residência. Tuberculose segue o ano do diagnóstico. Hanseníase e sífilis adquirida seguem o ano da notificação.', 'quality-note'),
-    results, el('p', 'Um traço indica dado indisponível no recorte.', 'quality-note'));
-  refresh();
+  const group = selectField(filters, 'Grupo de agravos', groups, setGroup);
+  if (groups.length === 1) group.parentElement.remove();
+  const year = selectField(filters, 'Ano de referência do SINAN', [], refresh);
+  const disease = selectField(filters, 'Agravo para a série histórica', [], refresh);
+  const basisNote = el('p', null, 'quality-note');
+  let entries, groupRows, years;
+  target.replaceChildren(filters, basisNote, results,
+    el('p', 'Um traço indica dado indisponível no recorte. Edições preliminares podem mudar. O ano em curso é parcial.', 'quality-note'));
+  setGroup();
+
+  function setGroup() {
+    const previousYear = Number(year.value);
+    entries = catalog.filter(([, info]) => (info.group ?? 'outros') === group.value);
+    const keys = new Set(entries.map(([key]) => key));
+    groupRows = dados.filter(row => keys.has(row.agravo));
+    years = [...new Set(groupRows.map(row => row.ano))].sort((a, b) => b - a);
+    replaceOptions(year, years.map(value => [value, value]));
+    replaceOptions(disease, entries.map(([key, info]) => [key, info.label]));
+    const complete = years.find(value => entries.every(([key]) =>
+      groupRows.some(row => row.ibge === city.value && row.agravo === key && row.ano === value)));
+    year.value = String(years.includes(previousYear) ? previousYear : complete ?? years[0]);
+    basisNote.textContent = group.value === 'arboviroses'
+      ? 'Notificações do SINAN por município de residência e ano epidemiológico dos primeiros sintomas. Os totais incluem registros de diferentes classificações.'
+      : 'Contagens por município de residência. Tuberculose segue o ano do diagnóstico. Hanseníase e sífilis adquirida seguem o ano da notificação.';
+    refresh();
+  }
 
   function refresh() {
     const chosenYear = Number(year.value);
-    const local = dados.filter(row => row.ibge === city.value);
+    const local = groupRows.filter(row => row.ibge === city.value);
     const chosen = new Map(local.filter(row => row.ano === chosenYear).map(row => [row.agravo, row]));
-    const color = palette[entries.findIndex(([key]) => key === disease.value)];
+    const color = colors.get(disease.value);
     const history = new Map(local.filter(row => row.agravo === disease.value).map(row => [row.ano, row]));
     const figures = el('div', null, 'quality-figures');
-    figures.append(metricChart('Registros por agravo · ' + chosenYear, entries.map(([key, info], index) => ({
-      label: info.label, value: chosen.get(key)?.notificacoes, color: palette[index],
+    const measure = group.value === 'arboviroses' ? 'Notificações' : 'Registros';
+    figures.append(metricChart(measure + ' por agravo · ' + chosenYear, entries.map(([key, info]) => ({
+      label: info.label, value: chosen.get(key)?.notificacoes, color: colors.get(key),
     })), 'count'));
     figures.append(metricChart(agravos[disease.value].label + ' · Série histórica', years.filter(value => value <= chosenYear)
       .reverse().map(value => {
@@ -103,17 +130,17 @@ export function renderEpidemiology(target, {municipios, agravos, dados}) {
         return {label: value + (record?.situacao === 'preliminar' ? ' · Preliminar' : ''),
           value: record?.notificacoes, color};
       }), 'count'));
-    results.replaceChildren(figures, yearTable(chosen));
+    results.replaceChildren(figures, yearTable(chosen, measure));
   }
 
-  function yearTable(chosen) {
+  function yearTable(chosen, measure) {
     const box = el('div', null, 'quality-table');
     box.tabIndex = 0;
     box.setAttribute('role', 'region');
     box.setAttribute('aria-label', 'Contagens e arquivos do ano selecionado');
     const table = el('table');
     const head = table.createTHead().insertRow();
-    for (const label of ['Agravo', 'Registros', 'Referência do ano', 'Situação', 'Arquivo SINAN', 'Atualização do arquivo']) {
+    for (const label of ['Agravo', measure, 'Referência do ano', 'Situação', 'Arquivo SINAN', 'Atualização do arquivo']) {
       const cell = el('th', label);
       cell.scope = 'col';
       head.append(cell);

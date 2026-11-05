@@ -1,5 +1,5 @@
 import {renderQualityCharts} from './quality-charts.mjs?v=dbe275a266d0';
-import {metricChart, metricValue, renderEpidemiology} from './metric-chart.mjs?v=6aa51587e0a2';
+import {metricChart, metricValue, renderEpidemiology} from './metric-chart.mjs?v=5b5408202678';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
