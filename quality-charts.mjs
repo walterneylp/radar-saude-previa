@@ -159,7 +159,7 @@ export function renderQualityCharts(target, municipalities, fixedGroup, selectio
   }
 }
 
-export function renderVinculo(target, {municipios, dimensoes, dados}, {downloadCsv, cutoff, source}) {
+export function renderVinculo(target, {municipios, dimensoes, dados}, {downloadCsv, cutoff, source, dimension: initialDimension}) {
   if (!dados.length) return;
   const controls = element('div', null, 'quality-controls');
   const content = element('div', null, 'quality-figures');
@@ -175,7 +175,7 @@ export function renderVinculo(target, {municipios, dimensoes, dados}, {downloadC
   const team = control(controls, 'Tipo de equipe no vínculo territorial', refresh);
   options(team, teamTypes.map(value => [value, value]), 'eSF');
   const dimension = control(controls, 'Dimensão para comparação', refresh);
-  options(dimension, sections, 'final');
+  options(dimension, sections, initialDimension ?? 'final');
   const download = element('button', 'Baixar vínculo territorial em CSV', 'chart-download');
   download.type = 'button';
   target.replaceChildren(controls, conceptLegend(), content, element('p',

@@ -1,4 +1,4 @@
-import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=a6a152df1b2a';
+import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=a0d1898d02ad';
 import {downloadCsv, metricChart, metricValue, renderApsPayments, renderApsQualityReference, renderEpidemiology, renderMunicipalNetwork, renderProduction, renderSisabProduction} from './metric-chart.mjs?v=050d76cd6e07';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
