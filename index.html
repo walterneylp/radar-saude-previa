@@ -7,10 +7,10 @@
   <meta name="theme-color" content="#142b24">
   <title>Radar Saúde DUOG · Prévia pública</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%23142b24'/%3E%3Cpath d='M16 8v16M8 16h16' stroke='%23b8e78f' stroke-width='4'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="./site.css?v=a675e77dd726">
+  <link rel="stylesheet" href="./site.css?v=12f4e34915ce">
   <link rel="stylesheet" href="./quality-charts.css?v=9ebe78367f59">
   <link rel="stylesheet" href="./metric-chart.css?v=be0d35501a16">
-  <script type="module" src="./site.js?v=1a250648e5f3"></script>
+  <script type="module" src="./site.js?v=4c530b2c8c27"></script>
 </head>
 <body>
   <header class="top">
@@ -60,6 +60,7 @@
           <p class="eyebrow">Projeto</p>
           <ul>
             <li><a href="#andamento">Entregas</a></li>
+            <li><a href="#cobertura">Cobertura funcional</a></li>
           </ul>
         </nav>
       </aside>
@@ -105,6 +106,12 @@
           <p class="eyebrow">Diário do projeto</p>
           <h2 id="andamento-title" tabindex="-1">Andamento das entregas</h2>
           <div class="milestones" id="deliveries"></div>
+        </section>
+        <section id="cobertura" class="dashboard-module" aria-labelledby="cobertura-title" hidden>
+          <p class="eyebrow">Avaliação do Radar Saúde</p>
+          <h2 id="cobertura-title" tabindex="-1">Cobertura funcional</h2>
+          <p class="intro">Confira o que já pode ser avaliado, as pendências de homologação e os painéis públicos relacionados às telas do levantamento.</p>
+          <div id="coverage"></div>
         </section>
       </div>
     </div>

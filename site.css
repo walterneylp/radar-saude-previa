@@ -70,6 +70,11 @@ footer p{margin:.4rem 0 0;font-size:.9rem}
 .dashboard-sidebar a[aria-current="page"]{background:#125846;color:#fff;font-weight:700}
 .dashboard-content,.dashboard-module{min-width:0}
 .dashboard-module h2{margin-bottom:1rem;scroll-margin-top:1rem}
+#coverage input{font:inherit;border:1px solid #789589;border-radius:.35rem;padding:.28rem .48rem}
+#coverage input:focus-visible{outline:3px solid #9c6122;outline-offset:2px}
+#coverage .table-scroll{overflow-x:auto;margin-bottom:1.5rem}
+#coverage table{min-width:36rem}
+#coverage th:last-child,#coverage td:last-child{text-align:left}
 #module-toggle{display:none}
 @media(max-width:850px){.dashboard .grid,.milestones{grid-template-columns:1fr}}
 @media(max-width:700px){

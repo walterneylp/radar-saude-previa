@@ -178,7 +178,59 @@ function renderVaccination(parent, cities) {
   showCity(cities[0].ibge);
 }
 
-function renderSnapshot({version, updated, ibge, municipality, series, sources, deliveries, comparison, pseRegional}) {
+function renderCoverage(coverage) {
+  const target = document.getElementById('coverage');
+  if (!coverage) {
+    target.append(el('p', 'Cobertura indisponível nesta publicação.'));
+    return;
+  }
+  const {requirements, routes, scenarios = []} = coverage;
+  const summary = el('p', `${requirements.length} requisitos, ${routes.length} rotas de referência e ${scenarios.length} cenários de validação.`);
+  const label = el('label', 'Buscar por código, requisito, tela ou cenário');
+  const search = el('input');
+  search.type = 'search';
+  label.append(search);
+  const result = el('div');
+  const searchable = value => value.toLocaleLowerCase('pt-BR').normalize('NFD').replace(/\p{Diacritic}/gu, '');
+
+  function render() {
+    const query = searchable(search.value.trim());
+    const matches = row => searchable(row.flat().join(' ')).includes(query);
+    const listedRequirements = requirements.filter(matches);
+    const listedRoutes = routes.filter(matches);
+    const listedScenarios = scenarios.filter(matches);
+    const requirementTable = el('div', null, 'table-scroll');
+    requirementTable.append(table(['ID', 'Requisito', 'Estado', 'Disponível para avaliação', 'Pendente'],
+      listedRequirements.map(([id, title, state, available, pending]) =>
+        [id, title, state === 'local' ? 'Testável na bancada' : 'Parcial', available, pending])));
+    const routeTable = el('div', null, 'table-scroll');
+    const grid = table(['ID', 'Tela de referência', 'Rota de origem', 'Painel público relacionado'],
+      listedRoutes.map(([id, label, path]) => [id, label, path, '—']));
+    listedRoutes.forEach(([, , , destination], index) => {
+      if (!destination || !document.getElementById(destination[0])) return;
+      const link = el('a', destination[1]);
+      link.href = '#' + destination[0];
+      grid.tBodies[0].rows[index].cells[3].replaceChildren(link);
+    });
+    routeTable.append(grid);
+    const scenarioTable = el('div', null, 'table-scroll');
+    scenarioTable.append(table(['ID', 'Cenário de validação', 'Estado', 'Evidência ou pendência'], listedScenarios));
+    result.replaceChildren(
+      el('h3', 'Requisitos'),
+      listedRequirements.length ? requirementTable : el('p', 'Nenhum requisito encontrado.'),
+      el('h3', 'Cenários de validação'),
+      listedScenarios.length ? scenarioTable : el('p', 'Nenhum cenário encontrado.'),
+      el('h3', 'Rotas do levantamento'),
+      listedRoutes.length ? routeTable : el('p', 'Nenhuma rota encontrada.')
+    );
+  }
+
+  target.append(summary, label, result);
+  search.addEventListener('input', render);
+  render();
+}
+
+function renderSnapshot({version, updated, ibge, municipality, series, sources, deliveries, comparison, pseRegional, coverage}) {
   const modules = {
     ibge: 'dados', cnes: 'rede', rede_municipal: 'rede', equipes_cnes: 'rede',
     fns: 'financiamento', pagamento_aps: 'financiamento', qualidade: 'indicadores',
@@ -196,6 +248,7 @@ function renderSnapshot({version, updated, ibge, municipality, series, sources, 
     milestones.append(item);
   }
   renderComparison(comparison);
+  renderCoverage(coverage);
 
   function card(module, title, links, wide = false) {
     const article = el('article', null, wide ? 'panel wide' : 'panel');
@@ -370,7 +423,7 @@ const submit = login.querySelector('button[type=submit]');
 const decode = value => Uint8Array.from(atob(value), character => character.charCodeAt(0));
 
 function clearSnapshot() {
-  for (const node of preview.querySelectorAll('[data-cards], #comparison, #deliveries, #version, #stamp')) {
+  for (const node of preview.querySelectorAll('[data-cards], #comparison, #deliveries, #coverage, #version, #stamp')) {
     node.replaceChildren();
   }
 }
