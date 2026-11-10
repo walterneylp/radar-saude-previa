@@ -422,6 +422,9 @@ export function renderProduction(target, {municipios, modalidades, dados}, {sour
         ...compare.map(item => ['Comparação municipal', item.ibge, item.label, modalidades[metric.value], period.value, item.value, cutoff, source]),
         ...timeline.map(item => ['Série mensal', city.value, municipios[city.value], modalidades[metric.value], item.month, item.value, cutoff, source])]));
     results.replaceChildren(figures, download);
+    if (cutoff && period.value === cutoff.slice(0, 7)) {
+      results.prepend(el('p', 'Competência em andamento na data da consulta. Os totais, inclusive zeros, podem mudar.', 'quality-note'));
+    }
   }
 }
 

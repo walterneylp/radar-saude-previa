@@ -1,5 +1,5 @@
 import {renderQualityCharts, renderVinculo} from './quality-charts.mjs?v=a6a152df1b2a';
-import {downloadCsv, metricChart, metricValue, renderApsPayments, renderApsQualityReference, renderEpidemiology, renderMunicipalNetwork, renderProduction, renderSisabProduction} from './metric-chart.mjs?v=731c2719ffcf';
+import {downloadCsv, metricChart, metricValue, renderApsPayments, renderApsQualityReference, renderEpidemiology, renderMunicipalNetwork, renderProduction, renderSisabProduction} from './metric-chart.mjs?v=050d76cd6e07';
 
 const number = new Intl.NumberFormat('pt-BR', {maximumFractionDigits: 2});
 const money = new Intl.NumberFormat('pt-BR', {style: 'currency', currency: 'BRL'});
