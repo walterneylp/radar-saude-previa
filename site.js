@@ -442,7 +442,7 @@ function showModule(focus) {
 
 navigation.addEventListener('click', event => {
   const link = event.target.closest('a');
-  if (!link || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  if (!link?.getAttribute('href')?.startsWith('#') || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
   if (location.hash !== link.hash) history.pushState(null, '', link.hash);
   showModule(true);
